@@ -1,17 +1,16 @@
 {
     "name": "ssi-experiment",
     "version": "1.0.0",
-    "description": "Self-Sovereign Identity experiment using Credo-ts",
+    "description": "SSI Issuer Agent implementation using Credo-TS",
     "license": "UNLICENSED",
     "private": true,
     "scripts": {
-        "dev": "ts-node src/server.ts",
-        "issuer": "ts-node src/start-issuer.ts",
-        "test-issuer": "ts-node src/start-test-issuer.ts"
+        "issuer": "ts-node src/start-issuer.ts"
     },
     "devDependencies": {
         "@types/node": "^24.1.0",
-        "typescript": "^5.9.2"
+        "typescript": "^5.9.2",
+        "ts-node": "^10.9.2"
     },
     "dependencies": {
         "@credo-ts/anoncreds": "0.5.0",
@@ -23,8 +22,7 @@
         "@credo-ts/openid4vc": "0.5.0",
         "@hyperledger/anoncreds-nodejs": "0.2.2",
         "@hyperledger/aries-askar-nodejs": "0.2.1",
-        "@hyperledger/indy-vdr-nodejs": "0.2.2",
-        "ts-node": "^10.9.2"
+        "@hyperledger/indy-vdr-nodejs": "0.2.2"
     },
     "overrides": {
         "axios": ">=1.11.0"
