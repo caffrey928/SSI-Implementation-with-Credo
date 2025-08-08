@@ -1,0 +1,422 @@
+import React, { useState, useEffect } from 'react';
+import { RecentTransaction } from '../types/dashboard';
+import { cheqdApiService } from '../services/cheqdApi';
+
+interface TransactionFilters {
+  type: string;
+  search: string;
+}
+
+interface TransactionDetailModalProps {
+  transaction: RecentTransaction;
+  onClose: () => void;
+}
+
+const getTypeColor = (contentType: 'DID' | 'Schema' | 'Definition') => {
+  if (contentType === 'DID') return 'bg-blue-100 text-blue-800';
+  if (contentType === 'Schema') return 'bg-green-100 text-green-800';
+  if (contentType === 'Definition') return 'bg-purple-100 text-purple-800';
+  return 'bg-gray-100 text-gray-800';
+};
+
+const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({ transaction, onClose }) => {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Transaction Details</h3>
+              <p className="text-sm text-gray-500 mt-1">Block #{transaction.height.toLocaleString()}</p>
+            </div>
+            <button 
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+        
+        {/* Content */}
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+          <div className="space-y-6">
+            {/* Transaction Hash */}
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Transaction Hash</h4>
+              <div className="bg-gray-50 rounded-lg p-3">
+                <p className="font-mono text-sm text-gray-900 break-all">{transaction.hash}</p>
+              </div>
+            </div>
+
+            {/* Type and Content Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Type</h4>
+                <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getTypeColor(transaction.contentType)}`}>
+                  {transaction.contentType}
+                </span>
+              </div>
+              
+              {transaction.contentId && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Content ID</h4>
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <p className="text-sm text-gray-900 truncate" title={transaction.contentId}>
+                      {transaction.contentId}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Sender */}
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Sender Address</h4>
+              <div className="bg-gray-50 rounded-lg p-3">
+                <p 
+                  className="font-mono text-sm text-gray-900 break-all cursor-pointer hover:bg-gray-100 p-2 rounded transition-colors"
+                  onClick={() => navigator.clipboard.writeText(transaction.sender)}
+                  title="Click to copy"
+                >
+                  {transaction.sender}
+                </p>
+              </div>
+            </div>
+
+            {/* Block and Time Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Block Info</h4>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-sm font-semibold text-gray-900">#{transaction.height.toLocaleString()}</p>
+                  <p className="text-xs text-gray-500 mt-1">Transaction #{transaction.txIndex}</p>
+                </div>
+              </div>
+              
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Timestamp</h4>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-sm text-gray-900">
+                    {new Date(transaction.timestamp).toLocaleDateString()}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {new Date(transaction.timestamp).toLocaleTimeString()} • {(() => {
+                      const now = new Date();
+                      const txTime = new Date(transaction.timestamp);
+                      const diffMs = now.getTime() - txTime.getTime();
+                      const diffMins = Math.floor(diffMs / (1000 * 60));
+                      const diffHours = Math.floor(diffMins / 60);
+                      const diffDays = Math.floor(diffHours / 24);
+                      
+                      if (diffMins < 1) return 'Just now';
+                      if (diffMins < 60) return `${diffMins}m ago`;
+                      if (diffHours < 24) return `${diffHours}h ago`;
+                      return `${diffDays}d ago`;
+                    })()}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+          <div className="flex justify-end">
+            <button
+              onClick={onClose}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const TransactionPage: React.FC = () => {
+  const [transactions, setTransactions] = useState<RecentTransaction[]>([]);
+  const [filteredTransactions, setFilteredTransactions] = useState<RecentTransaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedTx, setSelectedTx] = useState<RecentTransaction | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(20);
+  
+  const [filters, setFilters] = useState<TransactionFilters>({
+    type: '',
+    search: ''
+  });
+
+  useEffect(() => {
+    loadTransactions();
+  }, []);
+
+  useEffect(() => {
+    applyFilters();
+  }, [transactions, filters]);
+
+  const loadTransactions = async () => {
+    try {
+      setLoading(true);
+      // Load more transactions for the dedicated page
+      const txData = await cheqdApiService.getRecentTransactions();
+      setTransactions(txData);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to load transactions:', err);
+      setError('Failed to load transactions');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const applyFilters = () => {
+    let filtered = [...transactions];
+
+    // Filter by type
+    if (filters.type) {
+      filtered = filtered.filter(tx => tx.contentType === filters.type);
+    }
+
+    // Filter by search (hash or content)
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      filtered = filtered.filter(tx => 
+        tx.hash.toLowerCase().includes(searchLower) || 
+        tx.contentType.toLowerCase().includes(searchLower) ||
+        (tx.contentId && tx.contentId.toLowerCase().includes(searchLower))
+      );
+    }
+
+    setFilteredTransactions(filtered);
+    setCurrentPage(1); // Reset to first page when filtering
+  };
+
+
+  const shortenHash = (hash: string) => {
+    if (hash.length <= 20) return hash;
+    return `${hash.substring(0, 10)}...${hash.substring(hash.length - 10)}`;
+  };
+
+
+  // Pagination
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentTransactions = filteredTransactions.slice(startIndex, endIndex);
+
+  const resetFilters = () => {
+    setFilters({
+      type: '',
+      search: ''
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center min-h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading transactions...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="text-center py-12">
+          <span className="text-6xl">⚠️</span>
+          <h2 className="text-xl font-semibold text-gray-900 mt-4">Failed to Load Transactions</h2>
+          <p className="text-gray-600 mt-2">{error}</p>
+          <button 
+            onClick={loadTransactions}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Transactions</h1>
+        <p className="text-gray-600 mt-1">View and search all network transactions</p>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white rounded-lg p-6 mb-6 shadow-sm border border-gray-100">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
+            <input
+              type="text"
+              value={filters.search}
+              onChange={(e) => setFilters({...filters, search: e.target.value})}
+              placeholder="Hash or type..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
+            <select
+              value={filters.type}
+              onChange={(e) => setFilters({...filters, type: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">All Types</option>
+              <option value="DID">DID</option>
+              <option value="Schema">Schema</option>
+              <option value="Definition">Definition</option>
+            </select>
+          </div>
+        </div>
+        
+        <div className="flex justify-between items-center mt-4">
+          <button
+            onClick={resetFilters}
+            className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+          >
+            Reset Filters
+          </button>
+          <div className="text-sm text-gray-600">
+            Showing {filteredTransactions.length} of {transactions.length} transactions
+          </div>
+        </div>
+      </div>
+
+      {/* Results */}
+      {currentTransactions.length === 0 ? (
+        <div className="bg-white rounded-lg p-12 text-center shadow-sm border border-gray-100">
+          <span className="text-6xl">📝</span>
+          <h3 className="text-lg font-medium text-gray-900 mt-4">No transactions found</h3>
+          <p className="text-gray-500 mt-2">Try adjusting your filters or check back later for new transactions.</p>
+        </div>
+      ) : (
+        <>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hash</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Content</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Block</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {currentTransactions.map((transaction, index) => (
+                    <tr 
+                      key={index} 
+                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                      onClick={() => setSelectedTx(transaction)}
+                    >
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <span className="font-mono text-sm text-gray-900">{shortenHash(transaction.hash)}</span>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(transaction.contentType)}`}>
+                          {transaction.contentType}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="max-w-xs">
+                          {transaction.contentId ? (
+                            <p className="text-xs text-gray-900 truncate" title={transaction.contentId}>
+                              {transaction.contentId}
+                            </p>
+                          ) : (
+                            <span className="text-xs text-gray-400">-</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                        #{transaction.height.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div className="text-xs">
+                          <div>{new Date(transaction.timestamp).toLocaleDateString()}</div>
+                          <div className="text-gray-400">{new Date(transaction.timestamp).toLocaleTimeString()}</div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-6 flex items-center justify-between">
+              <div className="text-sm text-gray-700">
+                Showing {startIndex + 1} to {Math.min(endIndex, filteredTransactions.length)} of {filteredTransactions.length} results
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                
+                <div className="flex items-center space-x-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    const page = i + Math.max(1, currentPage - 2);
+                    if (page > totalPages) return null;
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`px-3 py-2 rounded-lg text-sm font-medium ${
+                          currentPage === page
+                            ? 'bg-blue-600 text-white'
+                            : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                <button
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {selectedTx && (
+        <TransactionDetailModal 
+          transaction={selectedTx} 
+          onClose={() => setSelectedTx(null)} 
+        />
+      )}
+    </div>
+  );
+};
+
+export default TransactionPage;

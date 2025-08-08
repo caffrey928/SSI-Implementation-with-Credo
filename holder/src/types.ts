@@ -1,11 +1,4 @@
-export interface StudentCredential {
-  id: string;
-  name: string;
-  studentId: string;
-  university: string;
-  isStudent: boolean;
-  birthDate: string;
-}
+import { AnonCredsRequestedAttribute } from "@credo-ts/anoncreds";
 
 export interface CredentialData {
   credentialId: string;
@@ -16,22 +9,12 @@ export interface CredentialData {
   issuerDid?: string;
 }
 
-export interface ProofRequest {
+export interface ProofRequestData {
+  proofRequestId: string;
+  connectionId: string;
+  requestedAt: Date;
   name: string;
   version: string;
-  requestedAttributes: Record<string, {
-    name: string;
-    restrictions?: Array<{
-      cred_def_id?: string;
-      schema_id?: string;
-      issuer_did?: string;
-    }>;
-  }>;
-}
-
-export interface ConnectionInfo {
-  connectionId: string;
-  theirLabel?: string;
-  state: string;
-  createdAt: Date;
+  requestedAttributes: Record<string, AnonCredsRequestedAttribute>;
+  requestedPredicates?: Record<string, AnonCredsRequestedAttribute>;
 }

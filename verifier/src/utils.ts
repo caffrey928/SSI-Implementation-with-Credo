@@ -5,7 +5,6 @@ export const createBaseAgent = async (config: {
 }) => {
   const { name, port, endpoints = [`http://localhost:${port}`] } = config;
 
-  // Base agent configuration - will be extended by each component
   return {
     config: {
       label: name,

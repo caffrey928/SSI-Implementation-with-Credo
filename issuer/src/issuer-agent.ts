@@ -128,7 +128,6 @@ export class IssuerAgent {
         throw new Error("Issuer DID not found");
       }
 
-      // 先檢查是否已經有相同的 schema
       const existingSchemas = await this.agent.modules.anoncreds.getCreatedSchemas({
         issuerId: issuerDid,
       });
@@ -144,7 +143,6 @@ export class IssuerAgent {
       } else {
         console.log("Schema not found, creating new one...");
         
-        // 創建新的 schema
         const schemaResult = await this.agent.modules.anoncreds.registerSchema({
           schema: {
             name: this.studentSchema.name,
@@ -155,7 +153,6 @@ export class IssuerAgent {
           options: {},
         });
 
-        // 檢查 Schema 註冊狀態
         if (schemaResult.schemaState.state === "failed") {
           throw new Error(
             `Schema registration failed: ${schemaResult.schemaState.reason}`
@@ -166,9 +163,7 @@ export class IssuerAgent {
         console.log(`Schema created: ${this.schemaId}`);
       }
 
-      // 處理 credential definition
       if (this.schemaId) {
-        // 先檢查是否已經有相同配置的 credential definition
         const existingCredDefs = await this.agent.modules.anoncreds.getCreatedCredentialDefinitions({
           issuerId: issuerDid,
           schemaId: this.schemaId,
@@ -196,7 +191,6 @@ export class IssuerAgent {
               },
             });
 
-          // 檢查 Credential Definition 註冊狀態
           if (credDefResult.credentialDefinitionState.state === "failed") {
             throw new Error(
               `Credential definition registration failed: ${credDefResult.credentialDefinitionState.reason}`
@@ -219,14 +213,12 @@ export class IssuerAgent {
   }
 
   private setupEventListeners() {
-    // 監聽連接狀態變化
     this.agent.events.on(
       ConnectionEventTypes.ConnectionStateChanged,
       async ({ payload }) => {
         const connectionRecord = payload.connectionRecord as ConnectionRecord;
         console.log(`Connection state changed: ${connectionRecord.state}`);
 
-        // 當收到連接請求時，自動接受
         if (connectionRecord.state === DidExchangeState.RequestReceived) {
           console.log("Connection request received, accepting...");
           try {
@@ -242,7 +234,6 @@ export class IssuerAgent {
             "Connection established, checking for pending credentials..."
           );
 
-          // 使用 outOfBandId 查找待發放憑證
           const outOfBandId = connectionRecord.outOfBandId;
           console.log(`Connection outOfBandId: ${outOfBandId}`);
           console.log(`Pending credentials keys:`, Array.from(this.pendingCredentials.keys()));
@@ -251,7 +242,6 @@ export class IssuerAgent {
             const pendingCredential = this.pendingCredentials.get(outOfBandId)!;
             console.log(`Found pending credential for ${pendingCredential.name}`);
 
-            // 建立連接ID到OutOfBandId的映射
             this.connectionToOutOfBand.set(connectionRecord.id, outOfBandId);
 
             await this.sendCredentialOffer(
@@ -259,7 +249,6 @@ export class IssuerAgent {
               pendingCredential
             );
 
-            // 清理待處理憑證
             this.pendingCredentials.delete(outOfBandId);
             console.log(`Cleaned up pending credential for outOfBandId: ${outOfBandId}`);
           } else {
@@ -269,7 +258,6 @@ export class IssuerAgent {
       }
     );
 
-    // 監聽憑證狀態變化
     this.agent.events.on(
       CredentialEventTypes.CredentialStateChanged,
       async ({ payload }) => {
@@ -284,13 +272,12 @@ export class IssuerAgent {
 
         if (credentialRecord.state === CredentialState.Done) {
           console.log("Credential issued successfully");
-          // 清理連接映射
+
           if (credentialRecord.connectionId) {
             const outOfBandId = this.connectionToOutOfBand.get(credentialRecord.connectionId);
             this.connectionToOutOfBand.delete(credentialRecord.connectionId);
             console.log(`Cleaned up connection mapping for connectionId: ${credentialRecord.connectionId}`);
             
-            // 確保 pendingCredentials 也被清理（雙重保險）
             if (outOfBandId && this.pendingCredentials.has(outOfBandId)) {
               this.pendingCredentials.delete(outOfBandId);
               console.log(`Final cleanup of pending credential for outOfBandId: ${outOfBandId}`);
@@ -307,14 +294,12 @@ export class IssuerAgent {
   async getDid(): Promise<string> {
     const dids = await this.agent.dids.getCreatedDids();
     
-    // 尋找 cheqd DID
     const cheqdDid = dids.find(did => did.did.startsWith('did:cheqd:'));
     if (cheqdDid) {
       console.log(`Using existing cheqd DID: ${cheqdDid.did}`);
       return cheqdDid.did;
     }
     
-    // 如果沒有 cheqd DID，創建一個
     console.log("Creating new cheqd DID for schema registration...");
     const didResult = await this.agent.dids.create({
       method: "cheqd",
@@ -346,7 +331,6 @@ export class IssuerAgent {
     console.log(`\n🎫 Creating new credential offer for: ${studentInfo.name}`);
     console.log(`⏰ Timestamp: ${new Date().toISOString()}`);
 
-    // 創建 Out-of-Band 邀請
     const outOfBandRecord = await this.agent.oob.createInvitation({
       handshakeProtocols: [HandshakeProtocol.DidExchange],
     });
@@ -361,9 +345,7 @@ export class IssuerAgent {
     });
 
     console.log(`🔗 Generated invitation URL: ${invitationUrl}`);
-    console.log(`📏 URL length: ${invitationUrl.length} characters`);
 
-    // 使用 record ID 作為 key，因為這是 connection 會引用的
     this.pendingCredentials.set(recordId, studentInfo);
     console.log(`💾 Stored pending credential with key: ${recordId}`);
 
@@ -396,7 +378,7 @@ export class IssuerAgent {
               { name: "studentId", value: studentInfo.studentId },
               { name: "university", value: studentInfo.university },
               { name: "isStudent", value: studentInfo.isStudent.toString() },
-              { name: "birthDate", value: studentInfo.birthDate },
+              { name: "birthDate", value: studentInfo.birthDate.replace(/-/g, '') }, 
             ],
           },
         },
@@ -419,13 +401,6 @@ export class IssuerAgent {
 
       console.log(`Credential issued for record: ${credentialRecord.id}`);
       console.log(`Current credential state: ${result.state}`);
-      
-      // 手動檢查狀態是否為 Done
-      if (result.state === CredentialState.Done) {
-        console.log("Credential is in Done state - should trigger cleanup");
-      } else {
-        console.log(`Waiting for state to change to Done, current: ${result.state}`);
-      }
     } catch (error) {
       console.error("Error issuing credential:", error);
       throw error;
@@ -471,7 +446,7 @@ export class IssuerAgent {
     }
   }
 
-  getConnectionStatus() {
+  getAgentStatus() {
     return {
       pendingCredentials: this.pendingCredentials.size,
       schemaId: this.schemaId,

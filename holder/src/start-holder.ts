@@ -60,25 +60,10 @@ function setupInteractiveInterface() {
             console.log('');
           });
         }
-      } else if (trimmed === 'connections') {
-        const connections = await holderAgent.getConnections();
-        console.log(`\n🔗 連接狀態 (${connections.length}):`);
-        if (connections.length === 0) {
-          console.log("  目前沒有建立連接");
-        } else {
-          connections.forEach((conn, index) => {
-            console.log(`  ${index + 1}. ID: ${conn.connectionId}`);
-            console.log(`     標籤: ${conn.theirLabel || '未知'}`);
-            console.log(`     狀態: ${conn.state}`);
-            console.log('');
-          });
-        }
       } else if (trimmed === 'status') {
         const status = holderAgent.getStatus();
         console.log(`\n📊 Holder 狀態:`);
         console.log(`  初始化: ${status.initialized ? '是' : '否'}`);
-        console.log(`  憑證數量: ${status.credentialCount}`);
-        console.log(`  連接數量: ${status.connectionCount}`);
       } else if (trimmed.startsWith('http') || trimmed.includes('oob=')) {
         console.log("\n📨 正在處理邀請...");
         await holderAgent.receiveInvitation(trimmed);

@@ -11,12 +11,18 @@ import {
   CredentialsModule,
   V2CredentialProtocol,
   DidsModule,
+  ProofsModule,
+  V2ProofProtocol,
+  ProofEventTypes,
+  ProofState,
+  ProofExchangeRecord,
 } from "@credo-ts/core";
 import { agentDependencies } from "@credo-ts/node";
 import { AskarModule } from "@credo-ts/askar";
 import { ariesAskar } from "@hyperledger/aries-askar-nodejs";
 import {
   AnonCredsCredentialFormatService,
+  AnonCredsProofFormatService,
   AnonCredsModule,
 } from "@credo-ts/anoncreds";
 import { anoncreds } from "@hyperledger/anoncreds-nodejs";
@@ -28,7 +34,7 @@ import {
 } from "@credo-ts/cheqd";
 
 import { createBaseAgent } from "./utils";
-import { CredentialData, ConnectionInfo } from "./types";
+import { CredentialData, ProofRequestData } from "./types";
 import { HttpInboundTransport } from "@credo-ts/node";
 
 export class HolderAgent {
@@ -40,10 +46,9 @@ export class HolderAgent {
     credentials: CredentialsModule<
       [V2CredentialProtocol<[AnonCredsCredentialFormatService]>]
     >;
+    proofs: ProofsModule<[V2ProofProtocol<[AnonCredsProofFormatService]>]>;
   }>;
   private initialized = false;
-  private credentials: Map<string, CredentialData> = new Map();
-  private connections: Map<string, ConnectionInfo> = new Map();
 
   async initialize() {
     if (this.initialized) return;
@@ -85,6 +90,13 @@ export class HolderAgent {
             }),
           ],
         }),
+        proofs: new ProofsModule({
+          proofProtocols: [
+            new V2ProofProtocol({
+              proofFormats: [new AnonCredsProofFormatService()],
+            }),
+          ],
+        }),
       },
     });
 
@@ -111,7 +123,6 @@ export class HolderAgent {
   }
 
   private setupEventListeners() {
-    // 監聽連接狀態變化
     this.agent.events.on(
       ConnectionEventTypes.ConnectionStateChanged,
       async ({ payload }) => {
@@ -119,21 +130,11 @@ export class HolderAgent {
         console.log(`Connection state changed: ${connectionRecord.state}`);
 
         if (connectionRecord.state === DidExchangeState.Completed) {
-          console.log("Connection established with issuer!");
-
-          // 儲存連接資訊
-          const connectionInfo: ConnectionInfo = {
-            connectionId: connectionRecord.id,
-            theirLabel: connectionRecord.theirLabel,
-            state: connectionRecord.state,
-            createdAt: connectionRecord.createdAt,
-          };
-          this.connections.set(connectionRecord.id, connectionInfo);
+          console.log("Connection established!");
         }
       }
     );
 
-    // 監聽憑證狀態變化
     this.agent.events.on(
       CredentialEventTypes.CredentialStateChanged,
       async ({ payload }) => {
@@ -155,31 +156,35 @@ export class HolderAgent {
           case CredentialState.Done:
             console.log("Credential process completed successfully");
             console.log(`Credential ID: ${credentialRecord.id}`);
-            // Credo-TS automatically stores the credential, we just track it
-            const credentialData: CredentialData = {
-              credentialId: credentialRecord.id,
-              attributes: {}, // Will be populated when we query the stored credential
-              issuedAt: credentialRecord.createdAt,
-            };
-            this.credentials.set(credentialRecord.id, credentialData);
-            
-            // 清理相關連接（如果憑證發放完成後不需要保持連接）
+
             if (credentialRecord.connectionId) {
-              console.log(`Credential received successfully from connection: ${credentialRecord.connectionId}`);
-              // 注意：這裡不直接刪除連接，因為可能還會用到
-              // 如果需要清理連接，可以取消註解下面的代碼
-              this.connections.delete(credentialRecord.connectionId);
-              console.log(`Cleaned up connection: ${credentialRecord.connectionId}`);
+              console.log(
+                `Credential received successfully from connection: ${credentialRecord.connectionId}`
+              );
             }
-            
-            console.log(`Total credentials stored: ${this.credentials.size}`);
-            console.log(`Active connections: ${this.connections.size}`);
             break;
         }
       }
     );
 
-    // Proof handling will be added later
+    this.agent.events.on(
+      ProofEventTypes.ProofStateChanged,
+      async ({ payload }) => {
+        const proofRecord = payload.proofRecord as ProofExchangeRecord;
+        console.log(`Proof state changed: ${proofRecord.state}`);
+
+        switch (proofRecord.state) {
+          case ProofState.RequestReceived:
+            console.log("Proof request received!");
+            await this.handleProofRequest(proofRecord);
+            break;
+
+          case ProofState.Done:
+            console.log("Proof exchange completed");
+            break;
+        }
+      }
+    );
   }
 
   private async acceptCredentialOffer(
@@ -198,30 +203,25 @@ export class HolderAgent {
     }
   }
 
-  private async acceptCredential(
-    credentialRecord: CredentialExchangeRecord
-  ) {
+  private async acceptCredential(credentialRecord: CredentialExchangeRecord) {
     try {
       await this.agent.credentials.acceptCredential({
         credentialRecordId: credentialRecord.id,
       });
-      console.log(
-        `Credential accepted for record: ${credentialRecord.id}`
-      );
+      console.log(`Credential accepted for record: ${credentialRecord.id}`);
     } catch (error) {
       console.error("Error accepting credential:", error);
       throw error;
     }
   }
 
-
-  // 先移除proof handling，專注於credential接收
-
   async receiveInvitation(invitationUrl: string): Promise<void> {
     try {
       console.log("Receiving invitation...");
       await this.agent.oob.receiveInvitationFromUrl(invitationUrl);
-      console.log("Invitation received, waiting for connection to establish...");
+      console.log(
+        "Invitation received, waiting for connection to establish..."
+      );
     } catch (error) {
       console.error("Error receiving invitation:", error);
       throw error;
@@ -232,14 +232,12 @@ export class HolderAgent {
     try {
       const dids = await this.agent.dids.getCreatedDids();
 
-      // 尋找 cheqd DID
-      const cheqdDid = dids.find(did => did.did.startsWith('did:cheqd:'));
+      const cheqdDid = dids.find((did) => did.did.startsWith("did:cheqd:"));
       if (cheqdDid) {
         console.log(`Using existing cheqd DID: ${cheqdDid.did}`);
         return cheqdDid.did;
       }
 
-      // 如果沒有 cheqd DID，創建一個
       console.log("Creating new cheqd DID...");
       const didResult = await this.agent.dids.create({
         method: "cheqd",
@@ -268,35 +266,104 @@ export class HolderAgent {
     }
   }
 
-  async getStoredCredentials(): Promise<CredentialData[]> {
+  private async handleProofRequest(proofRecord: ProofExchangeRecord) {
     try {
-      // 使用Credo-TS內建的API獲取所有憑證
-      const credentialRecords = await this.agent.credentials.getAll();
-      
-      return credentialRecords
-        .filter(record => record.role === 'holder')
-        .map(record => ({
-          credentialId: record.id,
-          attributes: {}, // TODO: 從實際的credential中提取屬性
-          schemaId: record.metadata.get('schemaId')?.toString(),
-          credentialDefinitionId: record.metadata.get('credentialDefinitionId')?.toString(),
-          issuedAt: record.createdAt,
-          issuerDid: record.metadata.get('issuerId')?.toString(),
-        }));
+      console.log(`Processing proof request: ${proofRecord.id}`);
+
+      const formatData = await this.agent.proofs.getFormatData(proofRecord.id);
+      if (!formatData.request) {
+        console.error("No proof request format data found");
+        return;
+      }
+
+      const anonCredsRequest = formatData.request.anoncreds;
+      if (!anonCredsRequest) {
+        console.error("No AnonCreds proof request found");
+        return;
+      }
+
+      const proofRequestData = anonCredsRequest;
+
+      if (proofRequestData) {
+        const requestData: ProofRequestData = {
+          proofRequestId: proofRecord.id,
+          connectionId: proofRecord.connectionId!,
+          requestedAt: new Date(),
+          name: proofRequestData.name || "Unknown Proof Request",
+          version: proofRequestData.version,
+          requestedAttributes: proofRequestData.requested_attributes || {},
+          requestedPredicates: proofRequestData.requested_predicates || {},
+        };
+
+        await this.processProofRequest(requestData);
+      }
     } catch (error) {
-      console.error("Error getting stored credentials:", error);
-      return Array.from(this.credentials.values()); // fallback to local storage
+      console.error("Error handling proof request:", error);
     }
   }
 
-  async getConnections(): Promise<ConnectionInfo[]> {
-    return Array.from(this.connections.values());
+  async processProofRequest(
+    proofRequestData: ProofRequestData
+  ): Promise<boolean> {
+    try {
+      const proofRecord = await this.agent.proofs.getById(
+        proofRequestData.proofRequestId
+      );
+
+      if (!proofRequestData) {
+        console.error("Proof request data not found");
+        return false;
+      }
+
+      console.log(`Processing proof request: ${proofRequestData.name}`);
+
+      const selectedCredentials =
+        await this.agent.proofs.selectCredentialsForRequest({
+          proofRecordId: proofRecord.id,
+        });
+
+      if (!selectedCredentials.proofFormats.anoncreds) {
+        console.log("No AnonCreds credentials selected for this proof request");
+        return false;
+      }
+
+      await this.agent.proofs.acceptRequest({
+        proofRecordId: proofRequestData.proofRequestId,
+        proofFormats: {
+          anoncreds: selectedCredentials.proofFormats.anoncreds,
+        },
+      });
+
+      console.log("Proof sent successfully");
+
+      return true;
+    } catch (error) {
+      console.error("Error processing proof request:", error);
+      
+      return false;
+    }
   }
 
-  async getCredentialById(
-    credentialId: string
-  ): Promise<CredentialData | undefined> {
-    return this.credentials.get(credentialId);
+  async getStoredCredentials(): Promise<CredentialData[]> {
+    try {
+      const credentialRecords = await this.agent.credentials.getAll();
+
+      return credentialRecords
+        .filter((record) => record.role === "holder")
+        .map((record) => ({
+          credentialId: record.id,
+          attributes: {},
+          schemaId: record.metadata.get("schemaId")?.toString(),
+          credentialDefinitionId: record.metadata
+            .get("credentialDefinitionId")
+            ?.toString(),
+          issuedAt: record.createdAt,
+          issuerDid: record.metadata.get("issuerId")?.toString(),
+        }));
+    } catch (error) {
+      console.error("Error getting stored credentials:", error);
+      return [];
+    }
   }
 
   getAgent(): Agent {
@@ -310,8 +377,6 @@ export class HolderAgent {
     console.log("🚀 Holder Agent started successfully!");
     console.log(`📍 Listening on: http://localhost:3002`);
     console.log(`🔑 Holder DID: ${await this.getDid()}`);
-    console.log(`📋 Stored credentials: ${this.credentials.size}`);
-    console.log(`🔗 Active connections: ${this.connections.size}`);
   }
 
   async stop() {
@@ -321,33 +386,9 @@ export class HolderAgent {
     }
   }
 
-  async cleanupConnection(connectionId: string): Promise<boolean> {
-    try {
-      if (this.connections.has(connectionId)) {
-        this.connections.delete(connectionId);
-        console.log(`Cleaned up connection: ${connectionId}`);
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error("Error cleaning up connection:", error);
-      return false;
-    }
-  }
-
-  async cleanupAllConnections(): Promise<void> {
-    console.log(`Cleaning up ${this.connections.size} connections...`);
-    this.connections.clear();
-    console.log("All connections cleaned up");
-  }
-
   getStatus() {
     return {
       initialized: this.initialized,
-      credentialCount: this.credentials.size,
-      connectionCount: this.connections.size,
-      credentials: Array.from(this.credentials.values()),
-      connections: Array.from(this.connections.values()),
     };
   }
 }

@@ -1,5 +1,3 @@
-import { Agent } from "@credo-ts/core";
-
 export const createBaseAgent = async (config: {
   name: string;
   port: number;
@@ -12,8 +10,8 @@ export const createBaseAgent = async (config: {
     config: {
       label: name,
       walletConfig: {
-        id: `${name.toLowerCase()}-wallet-test`,
-        key: `${name.toLowerCase()}-key-test123456789012345`,
+        id: `${name.toLowerCase()}-wallet`,
+        key: `${name.toLowerCase()}-key`,
       },
       endpoints,
     },
