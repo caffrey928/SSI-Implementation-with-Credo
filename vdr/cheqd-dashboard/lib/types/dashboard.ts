@@ -1,33 +1,20 @@
 export interface NetworkStats {
   totalDids: number;
-  totalResources: number;
+  totalSchemas: number;
+  totalDefinitions: number;
   activeValidators: number;
-  transactionVolume: number;
 }
 
 
-export interface ValidatorInfo {
-  moniker: string;
-  operatorAddress: string;
-  votingPower: number;
-  commission: number;
-  status: string;
-}
 
 export interface RecentTransaction {
   hash: string;
-  type: string;
   height: number;
   timestamp: string;
   status: 'success' | 'failed';
-  gasUsed: number;
-  gasWanted: number;
-  fee: string;
   sender: string;
-  didId?: string;
   contentType: 'DID' | 'Schema' | 'Definition';
   contentId?: string;
-  txIndex: number;
 }
 
 export interface NetworkHealth {
@@ -36,20 +23,13 @@ export interface NetworkHealth {
   peersConnected: number;
   consensusState: string;
   latestBlockTime: string;
+  consensusStep?: string;
+  consensusRound?: number;
 }
 
-export interface NodeInfo {
-  id: string;
-  moniker: string;
-  network: string;
-  version: string;
-  status: 'online' | 'offline' | 'syncing';
-}
 
 export interface UserData {
-  name: string;
   greeting: string;
-  subtitle: string;
 }
 
 export interface ConnectionStatus {
@@ -85,15 +65,28 @@ export interface ResourceData {
   tag?: string; // Definition tag
 }
 
+export interface BlockInfo {
+  height: number;
+  hash: string;
+  proposer: string;
+  timestamp: string;
+  txCount: number;
+}
+
+export interface ActiveValidator {
+  name: string;
+  address: string;
+  status: string;
+  proposer_priority: string;
+  votingPower: string;
+}
+
 export interface DashboardData {
   user: UserData;
   stats: NetworkStats;
-  validators: ValidatorInfo[];
   recentTransactions: RecentTransaction[];
+  activeValidators: ActiveValidator[];
   networkHealth: NetworkHealth;
-  nodeInfo: NodeInfo[];
-  recentDids: DidDocument[];
-  recentResources: ResourceData[];
   connectionStatus: ConnectionStatus;
 }
 

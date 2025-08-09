@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { DidDocument } from '../types/dashboard';
-import { cheqdApiService } from '../services/cheqdApi';
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { DidDocument } from '../../lib/types/dashboard';
+import { cheqdApiService } from '../../lib/services/cheqdApi';
+import { formatDid } from '../../lib/utils/formatters';
 
 interface DidFilters {
   search: string;
@@ -165,7 +166,7 @@ const DidDetailModal: React.FC<DidDetailModalProps> = ({ did, onClose }) => {
   );
 };
 
-const DidPage: React.FC = () => {
+const DidPage = forwardRef<{ refreshData: () => void }>((_, ref) => {
   const [dids, setDids] = useState<DidDocument[]>([]);
   const [filteredDids, setFilteredDids] = useState<DidDocument[]>([]);
   const [loading, setLoading] = useState(true);
@@ -200,6 +201,13 @@ const DidPage: React.FC = () => {
     }
   };
 
+  // Expose refresh function to parent component
+  useImperativeHandle(ref, () => ({
+    refreshData: () => {
+      loadDids();
+    }
+  }));
+
   const applyFilters = () => {
     let filtered = [...dids];
 
@@ -215,10 +223,6 @@ const DidPage: React.FC = () => {
     setCurrentPage(1);
   };
 
-  const shortenDid = (did: string) => {
-    if (did.length <= 40) return did;
-    return `${did.substring(0, 20)}...${did.substring(did.length - 20)}`;
-  };
 
   // Pagination
   const totalPages = Math.ceil(filteredDids.length / itemsPerPage);
@@ -328,7 +332,7 @@ const DidPage: React.FC = () => {
                       <td className="px-4 py-4">
                         <div className="max-w-xs">
                           <p className="font-mono text-sm text-gray-900 truncate" title={did.id}>
-                            {shortenDid(did.id)}
+                            {formatDid(did.id)}
                           </p>
                         </div>
                       </td>
@@ -410,6 +414,6 @@ const DidPage: React.FC = () => {
       )}
     </div>
   );
-};
+});
 
 export default DidPage;

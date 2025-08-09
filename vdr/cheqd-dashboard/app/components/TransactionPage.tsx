@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { RecentTransaction } from '../types/dashboard';
-import { cheqdApiService } from '../services/cheqdApi';
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { RecentTransaction } from '../../lib/types/dashboard';
+import { cheqdApiService } from '../../lib/services/cheqdApi';
+import { getTypeColor, formatHash } from '../../lib/utils/formatters';
 
 interface TransactionFilters {
   type: string;
@@ -12,27 +13,21 @@ interface TransactionDetailModalProps {
   onClose: () => void;
 }
 
-const getTypeColor = (contentType: 'DID' | 'Schema' | 'Definition') => {
-  if (contentType === 'DID') return 'bg-blue-100 text-blue-800';
-  if (contentType === 'Schema') return 'bg-green-100 text-green-800';
-  if (contentType === 'Definition') return 'bg-purple-100 text-purple-800';
-  return 'bg-gray-100 text-gray-800';
-};
 
 const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({ transaction, onClose }) => {
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-slate-800/95 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+        <div className="px-6 py-4 border-b border-white/20 bg-white/5">
           <div className="flex justify-between items-center">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Transaction Details</h3>
-              <p className="text-sm text-gray-500 mt-1">Block #{transaction.height.toLocaleString()}</p>
+              <h3 className="text-lg font-semibold text-white">Transaction Details</h3>
+              <p className="text-sm text-slate-400 mt-1">Block #{transaction.height.toLocaleString()}</p>
             </div>
             <button 
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+              className="text-slate-400 hover:text-white text-2xl leading-none"
             >
               ×
             </button>
@@ -91,7 +86,7 @@ const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({ transac
                 <h4 className="text-sm font-medium text-gray-700 mb-2">Block Info</h4>
                 <div className="bg-gray-50 rounded-lg p-3">
                   <p className="text-sm font-semibold text-gray-900">#{transaction.height.toLocaleString()}</p>
-                  <p className="text-xs text-gray-500 mt-1">Transaction #{transaction.txIndex}</p>
+                  <p className="text-xs text-gray-500 mt-1">Transaction #{transaction.height}</p>
                 </div>
               </div>
               
@@ -138,7 +133,7 @@ const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({ transac
   );
 };
 
-const TransactionPage: React.FC = () => {
+const TransactionPage = forwardRef<{ refreshData: () => void }>((_, ref) => {
   const [transactions, setTransactions] = useState<RecentTransaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<RecentTransaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -197,11 +192,14 @@ const TransactionPage: React.FC = () => {
     setCurrentPage(1); // Reset to first page when filtering
   };
 
+  // Expose refresh function to parent component
+  useImperativeHandle(ref, () => ({
+    refreshData: () => {
+      loadTransactions();
+    }
+  }));
 
-  const shortenHash = (hash: string) => {
-    if (hash.length <= 20) return hash;
-    return `${hash.substring(0, 10)}...${hash.substring(hash.length - 10)}`;
-  };
+
 
 
   // Pagination
@@ -251,30 +249,30 @@ const TransactionPage: React.FC = () => {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Transactions</h1>
-        <p className="text-gray-600 mt-1">View and search all network transactions</p>
+        <h1 className="text-2xl font-bold text-white">Transactions</h1>
+        <p className="text-slate-300 mt-1">View and search all network transactions</p>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg p-6 mb-6 shadow-sm border border-gray-100">
+      <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 mb-6 shadow-lg border border-white/20">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
+            <label className="block text-sm font-medium text-white mb-2">Search</label>
             <input
               type="text"
               value={filters.search}
               onChange={(e) => setFilters({...filters, search: e.target.value})}
               placeholder="Hash or type..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 text-white placeholder-slate-400"
             />
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
+            <label className="block text-sm font-medium text-white mb-2">Type</label>
             <select
               value={filters.type}
               onChange={(e) => setFilters({...filters, type: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 text-white"
             >
               <option value="">All Types</option>
               <option value="DID">DID</option>
@@ -287,11 +285,11 @@ const TransactionPage: React.FC = () => {
         <div className="flex justify-between items-center mt-4">
           <button
             onClick={resetFilters}
-            className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+            className="text-cyan-400 hover:text-cyan-300 text-sm font-medium"
           >
             Reset Filters
           </button>
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-slate-300">
             Showing {filteredTransactions.length} of {transactions.length} transactions
           </div>
         </div>
@@ -326,7 +324,7 @@ const TransactionPage: React.FC = () => {
                       onClick={() => setSelectedTx(transaction)}
                     >
                       <td className="px-4 py-4 whitespace-nowrap">
-                        <span className="font-mono text-sm text-gray-900">{shortenHash(transaction.hash)}</span>
+                        <span className="font-mono text-sm text-gray-900">{formatHash(transaction.hash, 10, 10)}</span>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(transaction.contentType)}`}>
@@ -417,6 +415,6 @@ const TransactionPage: React.FC = () => {
       )}
     </div>
   );
-};
+});
 
 export default TransactionPage;

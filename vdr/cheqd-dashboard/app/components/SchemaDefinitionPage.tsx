@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { ResourceData } from '../types/dashboard';
-import { cheqdApiService } from '../services/cheqdApi';
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { ResourceData } from '../../lib/types/dashboard';
+import { cheqdApiService } from '../../lib/services/cheqdApi';
 
 interface ResourceFilters {
   type: 'all' | 'Schema' | 'Definition';
@@ -13,7 +13,7 @@ interface ResourceDetailModalProps {
   allResources: ResourceData[]; // To find related resources
 }
 
-const getTypeColor = (type: 'Schema' | 'Definition') => {
+const getTypeColorBackground = (type: 'Schema' | 'Definition') => {
   if (type === 'Schema') return 'bg-green-100 text-green-800';
   if (type === 'Definition') return 'bg-purple-100 text-purple-800';
   return 'bg-gray-100 text-gray-800';
@@ -35,7 +35,7 @@ const ResourceDetailModal: React.FC<ResourceDetailModalProps> = ({ resource, onC
         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-3">
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getTypeColor(resource.resourceType)}`}>
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getTypeColorBackground(resource.resourceType)}`}>
                 {resource.resourceType}
               </span>
               <div>
@@ -104,7 +104,7 @@ const ResourceDetailModal: React.FC<ResourceDetailModalProps> = ({ resource, onC
                               <p className="text-sm font-medium text-gray-900">{def.name}</p>
                               <p className="text-xs text-gray-500">Block #{def.blockHeight.toLocaleString()}</p>
                             </div>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColor('Definition')}`}>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColorBackground('Definition')}`}>
                               Definition
                             </span>
                           </div>
@@ -155,7 +155,7 @@ const ResourceDetailModal: React.FC<ResourceDetailModalProps> = ({ resource, onC
                             </div>
                           )}
                         </div>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColor('Schema')}`}>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColorBackground('Schema')}`}>
                           Schema
                         </span>
                       </div>
@@ -248,7 +248,7 @@ const ResourceDetailModal: React.FC<ResourceDetailModalProps> = ({ resource, onC
   );
 };
 
-const SchemaDefinitionPage: React.FC = () => {
+const SchemaDefinitionPage = forwardRef<{ refreshData: () => void }>((_, ref) => {
   const [resources, setResources] = useState<ResourceData[]>([]);
   const [filteredResources, setFilteredResources] = useState<ResourceData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -283,6 +283,13 @@ const SchemaDefinitionPage: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Expose refresh function to parent component
+  useImperativeHandle(ref, () => ({
+    refreshData: () => {
+      loadResources();
+    }
+  }));
 
   const applyFilters = () => {
     let filtered = [...resources];
@@ -370,7 +377,7 @@ const SchemaDefinitionPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
           <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
             <div className="flex items-center">
-              <div className={`p-2 rounded-lg ${getTypeColor('Schema')}`}>
+              <div className={`p-2 rounded-lg ${getTypeColorBackground('Schema')}`}>
                 <span className="text-lg">📋</span>
               </div>
               <div className="ml-3">
@@ -382,7 +389,7 @@ const SchemaDefinitionPage: React.FC = () => {
           
           <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
             <div className="flex items-center">
-              <div className={`p-2 rounded-lg ${getTypeColor('Definition')}`}>
+              <div className={`p-2 rounded-lg ${getTypeColorBackground('Definition')}`}>
                 <span className="text-lg">🏷️</span>
               </div>
               <div className="ml-3">
@@ -486,7 +493,7 @@ const SchemaDefinitionPage: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(resource.resourceType)}`}>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColorBackground(resource.resourceType)}`}>
                           {resource.resourceType}
                         </span>
                       </td>
@@ -590,6 +597,6 @@ const SchemaDefinitionPage: React.FC = () => {
       )}
     </div>
   );
-};
+});
 
 export default SchemaDefinitionPage;
