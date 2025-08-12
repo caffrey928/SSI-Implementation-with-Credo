@@ -241,8 +241,10 @@ const DidPage = forwardRef<{ refreshData: () => void }>((_, ref) => {
       <div className="p-6">
         <div className="flex items-center justify-center min-h-96">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading DID documents...</p>
+            <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-12 border border-white/20" style={{boxShadow: '0 0 40px rgba(158, 202, 214, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)'}}>
+              <div className="animate-spin rounded-full h-16 w-16 border-4 border-transparent border-t-white/80 border-r-blue-400/60 mx-auto mb-6"></div>
+              <p className="text-slate-200 font-medium">Loading DID documents...</p>
+            </div>
           </div>
         </div>
       </div>
@@ -253,15 +255,20 @@ const DidPage = forwardRef<{ refreshData: () => void }>((_, ref) => {
     return (
       <div className="p-6">
         <div className="text-center py-12">
-          <span className="text-6xl">⚠️</span>
-          <h2 className="text-xl font-semibold text-gray-900 mt-4">Failed to Load DIDs</h2>
-          <p className="text-gray-600 mt-2">{error}</p>
-          <button 
-            onClick={loadDids}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Retry
-          </button>
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-12 border border-white/20" style={{boxShadow: '0 0 40px rgba(158, 202, 214, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)'}}>
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-red-400/20 to-orange-500/20 backdrop-blur-sm border border-red-300/30 flex items-center justify-center">
+              <span className="text-4xl">⚠️</span>
+            </div>
+            <h2 className="text-xl font-semibold text-white mt-4">Failed to Load DIDs</h2>
+            <p className="text-slate-200 mt-2">{error}</p>
+            <button 
+              onClick={loadDids}
+              className="mt-6 px-6 py-3 bg-white/20 backdrop-blur-md text-white font-semibold rounded-xl hover:bg-white/30 transition-all duration-300 transform hover:scale-105 border border-white/20"
+              style={{boxShadow: '0 0 15px rgba(158, 202, 214, 0.2)'}}
+            >
+              Retry
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -270,32 +277,32 @@ const DidPage = forwardRef<{ refreshData: () => void }>((_, ref) => {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">DID Documents</h1>
-        <p className="text-gray-600 mt-1">View and manage decentralized identifiers</p>
+        <h1 className="text-2xl font-bold text-white">DID Documents</h1>
+        <p className="text-slate-200 mt-1">View and manage decentralized identifiers</p>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg p-6 mb-6 shadow-sm border border-gray-100">
+      <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 mb-6 border border-white/20" style={{boxShadow: '0 0 40px rgba(158, 202, 214, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)'}}>
         <div className="flex items-center justify-between">
           <div className="flex-1 max-w-md">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Search DIDs</label>
+            <label className="block text-sm font-medium text-white mb-2">Search DIDs</label>
             <input
               type="text"
               value={filters.search}
               onChange={(e) => setFilters({...filters, search: e.target.value})}
               placeholder="Search by DID identifier..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-slate-300 focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 transition-all"
             />
           </div>
           
           <div className="ml-4 flex items-center space-x-4">
             <button
               onClick={resetFilters}
-              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+              className="text-blue-300 hover:text-blue-200 text-sm font-medium transition-colors"
             >
               Reset
             </button>
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-slate-200">
               {filteredDids.length} of {dids.length} DIDs
             </div>
           </div>
@@ -304,50 +311,50 @@ const DidPage = forwardRef<{ refreshData: () => void }>((_, ref) => {
 
       {/* Results */}
       {currentDids.length === 0 ? (
-        <div className="bg-white rounded-lg p-12 text-center shadow-sm border border-gray-100">
+        <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-12 text-center border border-white/20" style={{boxShadow: '0 0 40px rgba(158, 202, 214, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)'}}>
           <span className="text-6xl">🆔</span>
-          <h3 className="text-lg font-medium text-gray-900 mt-4">No DID documents found</h3>
-          <p className="text-gray-500 mt-2">Try adjusting your search terms or check back later for new DIDs.</p>
+          <h3 className="text-lg font-medium text-white mt-4">No DID documents found</h3>
+          <p className="text-slate-200 mt-2">Try adjusting your search terms or check back later for new DIDs.</p>
         </div>
       ) : (
         <>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl overflow-hidden border border-white/20" style={{boxShadow: '0 0 40px rgba(158, 202, 214, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)'}}>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50">
+                <thead className="bg-white/5 backdrop-blur-sm border-b border-white/10">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DID</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Controllers</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Block</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">DID</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Controllers</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Block</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Created</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-white/10">
                   {currentDids.map((did, index) => (
                     <tr 
                       key={index} 
-                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                      className="hover:bg-white/5 cursor-pointer transition-all duration-200 backdrop-blur-sm"
                       onClick={() => setSelectedDid(did)}
                     >
                       <td className="px-4 py-4">
                         <div className="max-w-xs">
-                          <p className="font-mono text-sm text-gray-900 truncate" title={did.id}>
+                          <p className="font-mono text-sm text-white truncate" title={did.id}>
                             {formatDid(did.id)}
                           </p>
                         </div>
                       </td>
                       <td className="px-4 py-4">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-sm text-slate-200">
                           {did.controller.length} controller{did.controller.length !== 1 ? 's' : ''}
                         </div>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-200">
                         #{did.blockHeight.toLocaleString()}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-300">
                         <div className="text-xs">
                           <div>{new Date(did.created).toLocaleDateString()}</div>
-                          <div className="text-gray-400">{new Date(did.created).toLocaleTimeString()}</div>
+                          <div className="text-slate-400">{new Date(did.created).toLocaleTimeString()}</div>
                         </div>
                       </td>
                     </tr>
@@ -360,7 +367,7 @@ const DidPage = forwardRef<{ refreshData: () => void }>((_, ref) => {
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="mt-6 flex items-center justify-between">
-              <div className="text-sm text-gray-700">
+              <div className="text-sm text-slate-200">
                 Showing {startIndex + 1} to {Math.min(endIndex, filteredDids.length)} of {filteredDids.length} results
               </div>
               
@@ -368,7 +375,7 @@ const DidPage = forwardRef<{ refreshData: () => void }>((_, ref) => {
                 <button
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-sm font-medium text-slate-200 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
                   Previous
                 </button>
@@ -381,11 +388,12 @@ const DidPage = forwardRef<{ refreshData: () => void }>((_, ref) => {
                       <button
                         key={page}
                         onClick={() => setCurrentPage(page)}
-                        className={`px-3 py-2 rounded-lg text-sm font-medium ${
+                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                           currentPage === page
-                            ? 'bg-blue-600 text-white'
-                            : 'text-gray-700 hover:bg-gray-50'
+                            ? 'bg-white/20 backdrop-blur-md text-white border border-white/20'
+                            : 'text-slate-200 hover:bg-white/10 backdrop-blur-sm'
                         }`}
+                        style={currentPage === page ? {boxShadow: '0 0 15px rgba(158, 202, 214, 0.3)'} : {}}
                       >
                         {page}
                       </button>
@@ -396,7 +404,7 @@ const DidPage = forwardRef<{ refreshData: () => void }>((_, ref) => {
                 <button
                   onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-sm font-medium text-slate-200 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
                   Next
                 </button>

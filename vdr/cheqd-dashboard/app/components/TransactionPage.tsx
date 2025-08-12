@@ -17,17 +17,18 @@ interface TransactionDetailModalProps {
 const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({ transaction, onClose }) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-slate-800/95 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
+      <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden" 
+           style={{ boxShadow: '0 0 40px rgba(158, 202, 214, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)' }}>
         {/* Header */}
         <div className="px-6 py-4 border-b border-white/20 bg-white/5">
           <div className="flex justify-between items-center">
             <div>
               <h3 className="text-lg font-semibold text-white">Transaction Details</h3>
-              <p className="text-sm text-slate-400 mt-1">Block #{transaction.height.toLocaleString()}</p>
+              <p className="text-sm text-slate-300 mt-1">Block #{transaction.height.toLocaleString()}</p>
             </div>
             <button 
               onClick={onClose}
-              className="text-slate-400 hover:text-white text-2xl leading-none"
+              className="text-slate-300 hover:text-white text-2xl leading-none transition-colors"
             >
               ×
             </button>
@@ -39,16 +40,16 @@ const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({ transac
           <div className="space-y-6">
             {/* Transaction Hash */}
             <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-2">Transaction Hash</h4>
-              <div className="bg-gray-50 rounded-lg p-3">
-                <p className="font-mono text-sm text-gray-900 break-all">{transaction.hash}</p>
+              <h4 className="text-sm font-medium text-slate-200 mb-2">Transaction Hash</h4>
+              <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+                <p className="font-mono text-sm text-white break-all">{transaction.hash}</p>
               </div>
             </div>
 
             {/* Type and Content Row */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Type</h4>
+                <h4 className="text-sm font-medium text-slate-200 mb-2">Type</h4>
                 <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getTypeColor(transaction.contentType)}`}>
                   {transaction.contentType}
                 </span>
@@ -56,9 +57,9 @@ const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({ transac
               
               {transaction.contentId && (
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Content ID</h4>
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-sm text-gray-900 truncate" title={transaction.contentId}>
+                  <h4 className="text-sm font-medium text-slate-200 mb-2">Content ID</h4>
+                  <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+                    <p className="text-sm text-white truncate" title={transaction.contentId}>
                       {transaction.contentId}
                     </p>
                   </div>
@@ -68,10 +69,10 @@ const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({ transac
 
             {/* Sender */}
             <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-2">Sender Address</h4>
-              <div className="bg-gray-50 rounded-lg p-3">
+              <h4 className="text-sm font-medium text-slate-200 mb-2">Sender Address</h4>
+              <div className="bg-white/5 border border-white/10 rounded-lg p-3">
                 <p 
-                  className="font-mono text-sm text-gray-900 break-all cursor-pointer hover:bg-gray-100 p-2 rounded transition-colors"
+                  className="font-mono text-sm text-white break-all cursor-pointer hover:bg-white/10 p-2 rounded transition-colors"
                   onClick={() => navigator.clipboard.writeText(transaction.sender)}
                   title="Click to copy"
                 >
@@ -83,20 +84,20 @@ const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({ transac
             {/* Block and Time Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Block Info</h4>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-sm font-semibold text-gray-900">#{transaction.height.toLocaleString()}</p>
-                  <p className="text-xs text-gray-500 mt-1">Transaction #{transaction.height}</p>
+                <h4 className="text-sm font-medium text-slate-200 mb-2">Block Info</h4>
+                <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+                  <p className="text-sm font-semibold text-white">#{transaction.height.toLocaleString()}</p>
+                  <p className="text-xs text-slate-300 mt-1">Transaction #{transaction.height}</p>
                 </div>
               </div>
               
               <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Timestamp</h4>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-sm text-gray-900">
+                <h4 className="text-sm font-medium text-slate-200 mb-2">Timestamp</h4>
+                <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+                  <p className="text-sm text-white">
                     {new Date(transaction.timestamp).toLocaleDateString()}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-slate-300 mt-1">
                     {new Date(transaction.timestamp).toLocaleTimeString()} • {(() => {
                       const now = new Date();
                       const txTime = new Date(transaction.timestamp);
@@ -118,11 +119,11 @@ const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({ transac
         </div>
         
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+        <div className="px-6 py-4 border-t border-white/20 bg-white/5">
           <div className="flex justify-end">
             <button
               onClick={onClose}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              className="px-6 py-2 bg-cyan-600/80 text-white rounded-lg hover:bg-cyan-500 transition-all duration-200 font-medium shadow-lg hover:shadow-cyan-500/25"
             >
               Close
             </button>
@@ -220,8 +221,8 @@ const TransactionPage = forwardRef<{ refreshData: () => void }>((_, ref) => {
       <div className="p-6">
         <div className="flex items-center justify-center min-h-96">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading transactions...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mx-auto mb-4"></div>
+            <p className="text-slate-200">Loading transactions...</p>
           </div>
         </div>
       </div>
@@ -233,11 +234,11 @@ const TransactionPage = forwardRef<{ refreshData: () => void }>((_, ref) => {
       <div className="p-6">
         <div className="text-center py-12">
           <span className="text-6xl">⚠️</span>
-          <h2 className="text-xl font-semibold text-gray-900 mt-4">Failed to Load Transactions</h2>
-          <p className="text-gray-600 mt-2">{error}</p>
+          <h2 className="text-xl font-semibold text-white mt-4">Failed to Load Transactions</h2>
+          <p className="text-slate-200 mt-2">{error}</p>
           <button 
             onClick={loadTransactions}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="mt-4 px-4 py-2 bg-cyan-600/80 text-white rounded-lg hover:bg-cyan-500 transition-all duration-200 shadow-lg hover:shadow-cyan-500/25"
           >
             Retry
           </button>
@@ -297,34 +298,36 @@ const TransactionPage = forwardRef<{ refreshData: () => void }>((_, ref) => {
 
       {/* Results */}
       {currentTransactions.length === 0 ? (
-        <div className="bg-white rounded-lg p-12 text-center shadow-sm border border-gray-100">
+        <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-12 text-center border border-white/20" 
+             style={{ boxShadow: '0 0 40px rgba(158, 202, 214, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)' }}>
           <span className="text-6xl">📝</span>
-          <h3 className="text-lg font-medium text-gray-900 mt-4">No transactions found</h3>
-          <p className="text-gray-500 mt-2">Try adjusting your filters or check back later for new transactions.</p>
+          <h3 className="text-lg font-medium text-white mt-4">No transactions found</h3>
+          <p className="text-slate-200 mt-2">Try adjusting your filters or check back later for new transactions.</p>
         </div>
       ) : (
         <>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 overflow-hidden" 
+               style={{ boxShadow: '0 0 40px rgba(158, 202, 214, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)' }}>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50">
+                <thead className="bg-white/5">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hash</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Content</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Block</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Hash</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Type</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Content</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Block</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Time</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-white/10">
                   {currentTransactions.map((transaction, index) => (
                     <tr 
                       key={index} 
-                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                      className="hover:bg-white/5 cursor-pointer transition-colors"
                       onClick={() => setSelectedTx(transaction)}
                     >
                       <td className="px-4 py-4 whitespace-nowrap">
-                        <span className="font-mono text-sm text-gray-900">{formatHash(transaction.hash, 10, 10)}</span>
+                        <span className="font-mono text-sm text-slate-200">{formatHash(transaction.hash, 10, 10)}</span>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(transaction.contentType)}`}>
@@ -334,21 +337,21 @@ const TransactionPage = forwardRef<{ refreshData: () => void }>((_, ref) => {
                       <td className="px-4 py-4">
                         <div className="max-w-xs">
                           {transaction.contentId ? (
-                            <p className="text-xs text-gray-900 truncate" title={transaction.contentId}>
+                            <p className="text-xs text-slate-200 truncate" title={transaction.contentId}>
                               {transaction.contentId}
                             </p>
                           ) : (
-                            <span className="text-xs text-gray-400">-</span>
+                            <span className="text-xs text-slate-400">-</span>
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-200">
                         #{transaction.height.toLocaleString()}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-300">
                         <div className="text-xs">
                           <div>{new Date(transaction.timestamp).toLocaleDateString()}</div>
-                          <div className="text-gray-400">{new Date(transaction.timestamp).toLocaleTimeString()}</div>
+                          <div className="text-slate-400">{new Date(transaction.timestamp).toLocaleTimeString()}</div>
                         </div>
                       </td>
                     </tr>
@@ -361,7 +364,7 @@ const TransactionPage = forwardRef<{ refreshData: () => void }>((_, ref) => {
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="mt-6 flex items-center justify-between">
-              <div className="text-sm text-gray-700">
+              <div className="text-sm text-slate-200">
                 Showing {startIndex + 1} to {Math.min(endIndex, filteredTransactions.length)} of {filteredTransactions.length} results
               </div>
               
@@ -369,7 +372,7 @@ const TransactionPage = forwardRef<{ refreshData: () => void }>((_, ref) => {
                 <button
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 py-2 border border-white/20 rounded-lg text-sm font-medium text-slate-200 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   Previous
                 </button>
@@ -382,10 +385,10 @@ const TransactionPage = forwardRef<{ refreshData: () => void }>((_, ref) => {
                       <button
                         key={page}
                         onClick={() => setCurrentPage(page)}
-                        className={`px-3 py-2 rounded-lg text-sm font-medium ${
+                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                           currentPage === page
-                            ? 'bg-blue-600 text-white'
-                            : 'text-gray-700 hover:bg-gray-50'
+                            ? 'bg-cyan-600/80 text-white shadow-lg shadow-cyan-500/25'
+                            : 'text-slate-200 hover:bg-white/10'
                         }`}
                       >
                         {page}
@@ -397,7 +400,7 @@ const TransactionPage = forwardRef<{ refreshData: () => void }>((_, ref) => {
                 <button
                   onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 py-2 border border-white/20 rounded-lg text-sm font-medium text-slate-200 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   Next
                 </button>

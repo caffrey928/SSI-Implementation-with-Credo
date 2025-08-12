@@ -28,8 +28,9 @@ import {
 } from "@credo-ts/cheqd";
 import { DidsModule } from "@credo-ts/core";
 
-import { createBaseAgent } from "./utils";
-import { StudentCredential } from "./types";
+import { createBaseAgent } from "./agentUtils";
+import { StudentCredential } from "../types/types";
+import { CleanupManager } from "../utils/cleanupManager";
 
 import { HttpInboundTransport } from "@credo-ts/node";
 
@@ -49,10 +50,19 @@ export class IssuerAgent {
     version: "1.0",
     attributes: ["name", "studentId", "university", "isStudent", "birthDate"],
   };
-  private pendingCredentials = new Map<string, StudentCredential>(); // outOfBandId -> StudentCredential
+  private pendingCredentials = new Map<string, { student: StudentCredential; createdAt: Date; shortUrl?: string }>(); // outOfBandId -> {student, timestamp, shortUrl}
   private connectionToOutOfBand = new Map<string, string>(); // connectionId -> outOfBandId
+  private cleanupManager: CleanupManager;
   private schemaId?: string;
   private credentialDefinitionId?: string;
+
+  constructor() {
+    this.cleanupManager = new CleanupManager(
+      () => this.cleanupExpiredCredentials(),
+      5000,
+      'Expired Pending Credentials'
+    );
+  }
 
   async initialize() {
     if (this.initialized) return;
@@ -110,6 +120,7 @@ export class IssuerAgent {
         console.log("Agent initialized!");
         await this.setupSchemaAndCredDef();
         this.setupEventListeners();
+        this.cleanupManager.start();
         this.initialized = true;
       })
       .catch((e) => {
@@ -235,11 +246,10 @@ export class IssuerAgent {
           );
 
           const outOfBandId = connectionRecord.outOfBandId;
-          console.log(`Connection outOfBandId: ${outOfBandId}`);
-          console.log(`Pending credentials keys:`, Array.from(this.pendingCredentials.keys()));
           
           if (outOfBandId && this.pendingCredentials.has(outOfBandId)) {
-            const pendingCredential = this.pendingCredentials.get(outOfBandId)!;
+            const pendingCredentialData = this.pendingCredentials.get(outOfBandId)!;
+            const pendingCredential = pendingCredentialData.student;
             console.log(`Found pending credential for ${pendingCredential.name}`);
 
             this.connectionToOutOfBand.set(connectionRecord.id, outOfBandId);
@@ -250,9 +260,7 @@ export class IssuerAgent {
             );
 
             this.pendingCredentials.delete(outOfBandId);
-            console.log(`Cleaned up pending credential for outOfBandId: ${outOfBandId}`);
-          } else {
-            console.log(`No pending credential found for outOfBandId: ${outOfBandId}`);
+            console.log(`Processed credential for: ${pendingCredential.name}`);
           }
         }
       }
@@ -328,8 +336,7 @@ export class IssuerAgent {
       throw new Error("Schema and Credential Definition not initialized");
     }
 
-    console.log(`\n🎫 Creating new credential offer for: ${studentInfo.name}`);
-    console.log(`⏰ Timestamp: ${new Date().toISOString()}`);
+    console.log(`Creating credential offer for: ${studentInfo.name}`);
 
     const outOfBandRecord = await this.agent.oob.createInvitation({
       handshakeProtocols: [HandshakeProtocol.DidExchange],
@@ -337,23 +344,20 @@ export class IssuerAgent {
     const outOfBandId = outOfBandRecord.outOfBandInvitation.id;
     const recordId = outOfBandRecord.id;
 
-    console.log(`📧 OutOfBand invitation ID: ${outOfBandId}`);
-    console.log(`📋 OutOfBand record ID: ${recordId}`);
-
     const invitationUrl = outOfBandRecord.outOfBandInvitation.toUrl({
-      domain: "http://localhost:3001",
+      domain: "http://localhost:4001",
     });
 
-    console.log(`🔗 Generated invitation URL: ${invitationUrl}`);
-
-    this.pendingCredentials.set(recordId, studentInfo);
-    console.log(`💾 Stored pending credential with key: ${recordId}`);
-
-    console.log(`✅ Credential offer created for student: ${studentInfo.name}\n`);
+    this.pendingCredentials.set(recordId, { 
+      student: studentInfo, 
+      createdAt: new Date() 
+    });
+    
+    console.log(`Credential offer created for: ${studentInfo.name}`);
 
     return {
       invitationUrl,
-      outOfBandId,
+      recordId,
       studentInfo,
     };
   }
@@ -378,7 +382,7 @@ export class IssuerAgent {
               { name: "studentId", value: studentInfo.studentId },
               { name: "university", value: studentInfo.university },
               { name: "isStudent", value: studentInfo.isStudent.toString() },
-              { name: "birthDate", value: studentInfo.birthDate.replace(/-/g, '') }, 
+              { name: "birthDate", value: studentInfo.birthDate.toString() }, 
             ],
           },
         },
@@ -420,6 +424,35 @@ export class IssuerAgent {
       }));
   }
 
+  updatePendingCredentialUrl(recordId: string, shortUrl: string) {
+    const existing = this.pendingCredentials.get(recordId);
+    if (existing) {
+      this.pendingCredentials.set(recordId, {
+        ...existing,
+        shortUrl: shortUrl
+      });
+    }
+  }
+
+  async getPendingCredentials() {
+    const pendingList = [];
+    for (const [outOfBandId, data] of this.pendingCredentials.entries()) {
+      pendingList.push({
+        id: outOfBandId,
+        studentName: data.student.name,
+        studentId: data.student.studentId,
+        university: data.student.university,
+        birthDate: data.student.birthDate,
+        isStudent: data.student.isStudent,
+        createdAt: data.createdAt,
+        status: 'pending',
+        expiresAt: new Date(data.createdAt.getTime() + 60000), // 1 minute expiry
+        invitationUrl: data.shortUrl || null
+      });
+    }
+    return pendingList;
+  }
+
   async getStudentSchema() {
     return this.studentSchema;
   }
@@ -432,14 +465,38 @@ export class IssuerAgent {
     if (!this.initialized) {
       await this.initialize();
     }
-    console.log("🚀 Issuer Agent started successfully!");
-    console.log(`📍 Listening on: http://localhost:3001`);
-    console.log(`🔑 Issuer DID: ${await this.getDid()}`);
-    console.log(`📋 Schema ID: ${this.schemaId}`);
-    console.log(`📜 Credential Definition ID: ${this.credentialDefinitionId}`);
+    console.log("Issuer Agent started successfully!");
+    console.log("Listening on: http://localhost:3001");
+  }
+
+
+  private cleanupExpiredCredentials() {
+    const now = new Date();
+    const expiredKeys: string[] = [];
+    
+    // Find credentials older than 1 minute (60000 ms)
+    for (const [key, data] of this.pendingCredentials.entries()) {
+      const timeDiff = now.getTime() - data.createdAt.getTime();
+      if (timeDiff > 60000) { // 1 minute
+        expiredKeys.push(key);
+      }
+    }
+    
+    // Remove expired credentials
+    expiredKeys.forEach(key => {
+      const data = this.pendingCredentials.get(key);
+      if (data) {
+        this.pendingCredentials.delete(key);
+      }
+    });
+    
+    if (expiredKeys.length > 0) {
+      console.log(`Cleaned up ${expiredKeys.length} expired pending credentials`);
+    }
   }
 
   async stop() {
+    this.cleanupManager.stop();
     if (this.agent) {
       await this.agent.shutdown();
       console.log("Issuer Agent stopped");

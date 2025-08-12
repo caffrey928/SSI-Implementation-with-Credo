@@ -1,5 +1,23 @@
 import axios from 'axios';
-import { DashboardData, NetworkStats, RecentTransaction, NetworkHealth, DidDocument, ResourceData, ConnectionStatus } from '../types/dashboard';
+import { 
+  DashboardData, 
+  NetworkStats, 
+  RecentTransaction, 
+  DidDocument, 
+  ResourceData, 
+  ConnectionStatus,
+  RpcResponse,
+  StatusResponse,
+  BlockResponse,
+  ValidatorInfo,
+  ValidatorsResponse,
+  TransactionSearchResponse,
+  TransactionData,
+  TransactionEvent,
+  TransactionAttribute,
+  BlockInfo,
+  ActiveValidator
+} from '../types/dashboard';
 
 const CORS_PROXY = process.env.NEXT_PUBLIC_CORS_PROXY;
 
@@ -8,7 +26,7 @@ class CheqdApiService {
     // Environment variables are loaded directly from .env
   }
 
-  private async makeRpcRequest(endpoint: string) {
+  private async makeRpcRequest<T = unknown>(endpoint: string): Promise<RpcResponse<T>> {
     // Use proxy server to avoid CORS issues
     const url = `${CORS_PROXY}/api/rpc${endpoint}`;
     
@@ -22,78 +40,14 @@ class CheqdApiService {
     return response.data;
   }
 
-
-  async getNetworkStatus(): Promise<NetworkHealth> {
-    const statusResponse = await this.makeRpcRequest('/status');
-    const result = statusResponse.result;
-    const currentHeight = parseInt(result.sync_info.latest_block_height);
-    
-    // Get the actual block data for more accurate timestamp
-    let latestBlockTime = result.sync_info.latest_block_time;
-    
-    try {
-      // Fetch the actual latest block to get precise timestamp
-      const blockResponse = await this.makeRpcRequest(`/block?height=${currentHeight}`);
-      const blockTime = blockResponse.result?.block?.header?.time;
-      
-      if (blockTime) {
-        latestBlockTime = blockTime;
-      } else {
-      }
-    } catch (error) {
-      console.warn('Failed to get block timestamp, using status timestamp:', error);
-    }
-    
-    if (!latestBlockTime) {
-      console.warn('No block time found, using current time');
-      latestBlockTime = new Date().toISOString();
-    }
-
-    // Get consensus state information
-    let consensusStep = 'Propose';
-    let consensusRound = 0;
-    
-    try {
-      const consensusState = await this.makeRpcRequest('/consensus_state');
-      if (consensusState.result?.round_state) {
-        const roundState = consensusState.result.round_state;
-        consensusRound = parseInt(roundState.round || '0');
-        
-        // Map step number to step name
-        const stepNumber = parseInt(roundState.step || '0');
-        const stepNames = ['Propose', 'Prevote', 'Precommit', 'Commit'];
-        consensusStep = stepNames[stepNumber] || 'Propose';
-        
-      }
-    } catch (error) {
-      console.warn('Failed to get consensus state, using defaults:', error);
-      // Use block height to simulate consensus steps
-      const stepIndex = currentHeight % 4;
-      const stepNames = ['Propose', 'Prevote', 'Precommit', 'Commit'];
-      consensusStep = stepNames[stepIndex];
-      consensusRound = Math.floor(currentHeight / 100) % 10;
-    }
-    
-    return {
-      blockHeight: currentHeight,
-      syncingStatus: result.sync_info.catching_up,
-      peersConnected: parseInt(result.sync_info.num_peers || '0'),
-      consensusState: result.validator_info.voting_power > 0 ? 'validator' : 'observer',
-      latestBlockTime: latestBlockTime,
-      consensusStep,
-      consensusRound
-    };
-  }
-
-
-
   // Get single latest block
-  async getLatestBlock(validators: any[]): Promise<any | null> {
+  async getLatestBlock(validators: ActiveValidator[]): Promise<BlockInfo | null> {
     try {
-      const statusResponse = await this.makeRpcRequest('/status');
-      const currentHeight = parseInt(statusResponse.result?.sync_info?.latest_block_height || '0');
+      const statusResponse = await this.makeRpcRequest<StatusResponse>('/status');
+      if (!statusResponse.result) return null;
+      const currentHeight = parseInt(statusResponse.result.sync_info.latest_block_height || '0');
       
-      const blockResponse = await this.makeRpcRequest(`/block?height=${currentHeight}`);
+      const blockResponse = await this.makeRpcRequest<BlockResponse>(`/block?height=${currentHeight}`);
       const block = blockResponse.result?.block;
       
       if (!block) {
@@ -109,7 +63,6 @@ class CheqdApiService {
         const matchedValidator = validators.find((v: any) => v.address === proposerAddress);
         if (matchedValidator) {
           proposerName = matchedValidator.name; // Use simplified name
-        } else {
         }
       }
       
@@ -126,24 +79,21 @@ class CheqdApiService {
     }
   }
 
-
-
-  async getActiveValidators(): Promise<any[]> {
+  async getActiveValidators(): Promise<ActiveValidator[]> {
     try {
-      const validatorsResponse = await this.makeRpcRequest('/validators');
-      const validators = validatorsResponse.result?.validators || [];
-      
+      const validatorsResponse = await this.makeRpcRequest<ValidatorsResponse>('/validators');
+      if (!validatorsResponse.result) return [];
+      const validators = validatorsResponse.result.validators || [];
       
       // Calculate total voting power for percentage calculation
-      const totalVotingPower = validators.reduce((sum: number, validator: any) => {
+      const totalVotingPower = validators.reduce((sum: number, validator: ValidatorInfo) => {
         return sum + parseFloat(validator.voting_power || '0');
       }, 0);
       
-      return validators.slice(0, 4).map((validator: any, index: number) => ({
+      return validators.slice(0, 4).map((validator: ValidatorInfo, index: number) => ({
         name: `Validator ${index}`,
         address: validator.address || 'Unknown',
         status: validator.jailed ? 'Jailed' : 'Active',
-        proposer_priority: validator.proposer_priority || '0',
         votingPower: totalVotingPower > 0 ? 
           `${((parseFloat(validator.voting_power || '0') / totalVotingPower) * 100).toFixed(1)}%` : 
           '0%'
@@ -157,14 +107,14 @@ class CheqdApiService {
   async getRecentTransactions(): Promise<RecentTransaction[]> {
     try {
       // Get more transactions for the dedicated Transaction page
-      const didTxs = await this.makeRpcRequest('/tx_search?query="message.action=\'/cheqd.did.v2.MsgCreateDidDoc\'"&per_page=50');
-      const resourceTxs = await this.makeRpcRequest('/tx_search?query="message.action=\'/cheqd.resource.v2.MsgCreateResource\'"&per_page=50');
+      const didTxs = await this.makeRpcRequest<TransactionSearchResponse>('/tx_search?query="message.action=\'/cheqd.did.v2.MsgCreateDidDoc\'"&per_page=50');
+      const resourceTxs = await this.makeRpcRequest<TransactionSearchResponse>('/tx_search?query="message.action=\'/cheqd.resource.v2.MsgCreateResource\'"&per_page=50');
       
       const allTxs = [...(didTxs.result?.txs || []), ...(resourceTxs.result?.txs || [])];
       
       
       const processedTxs = await Promise.all(
-        allTxs.map(async (tx: any) => {
+        allTxs.map(async (tx: TransactionData) => {
           const contentInfo = this.extractContentInfo(tx);
           
           return {
@@ -191,8 +141,7 @@ class CheqdApiService {
     }
   }
 
-
-  private async extractTimestamp(tx: any): Promise<string> {
+  private async extractTimestamp(tx: TransactionData): Promise<string> {
     try {
       // First try to get timestamp from the transaction itself
       if (tx.timestamp) {
@@ -203,7 +152,7 @@ class CheqdApiService {
       const blockHeight = tx.height;
       if (blockHeight) {
         try {
-          const blockResponse = await this.makeRpcRequest(`/block?height=${blockHeight}`);
+          const blockResponse = await this.makeRpcRequest<BlockResponse>(`/block?height=${blockHeight}`);
           const blockTime = blockResponse.result?.block?.header?.time;
           if (blockTime) {
             return blockTime;
@@ -214,7 +163,7 @@ class CheqdApiService {
       }
 
       // Fallback: estimate based on block height (assuming 6 seconds per block)
-      const currentStatus = await this.makeRpcRequest('/status');
+      const currentStatus = await this.makeRpcRequest<StatusResponse>('/status');
       const currentHeight = parseInt(currentStatus.result?.sync_info?.latest_block_height || '0');
       const currentTime = new Date(currentStatus.result?.sync_info?.latest_block_time || new Date());
       
@@ -230,13 +179,13 @@ class CheqdApiService {
   }
 
 
-  private extractSender(tx: any): string {
+  private extractSender(tx: TransactionData): string {
     try {
       // Look for sender in message events
       const events = tx.tx_result?.events || [];
       for (const event of events) {
         if (event.type === 'message') {
-          const senderAttr = event.attributes?.find((attr: any) => attr.key === 'sender');
+          const senderAttr = event.attributes?.find((attr: TransactionAttribute) => attr.key === 'sender');
           if (senderAttr && senderAttr.value) {
             return senderAttr.value;
           }
@@ -248,13 +197,13 @@ class CheqdApiService {
     }
   }
 
-  private extractContentInfo(tx: any): { contentType: 'DID' | 'Schema' | 'Definition', contentId?: string } {
+  private extractContentInfo(tx: TransactionData): { contentType: 'DID' | 'Schema' | 'Definition', contentId?: string } {
     try {
       // Check if this is a DID transaction by looking at the events
       const events = tx.tx_result?.events || [];
-      const hasDidEvent = events.some((event: any) => 
+      const hasDidEvent = events.some((event: TransactionEvent) => 
         event.type === 'message' && 
-        event.attributes?.some((attr: any) => 
+        event.attributes?.some((attr: TransactionAttribute) => 
           attr.key === 'action' && attr.value?.includes('DidDoc')
         )
       );
@@ -270,9 +219,9 @@ class CheqdApiService {
       
       // Resource transactions - need to determine if Schema or Definition
       // Check if this is a Resource transaction
-      const hasResourceEvent = events.some((event: any) => 
+      const hasResourceEvent = events.some((event: TransactionEvent) => 
         event.type === 'message' && 
-        event.attributes?.some((attr: any) => 
+        event.attributes?.some((attr: TransactionAttribute) => 
           attr.key === 'action' && attr.value?.includes('Resource')
         )
       );
@@ -323,7 +272,7 @@ class CheqdApiService {
     }
   }
 
-  private extractDidFromTx(tx: any): string | undefined {
+  private extractDidFromTx(tx: TransactionData): string | undefined {
     try {
       if (tx.tx) {
         const binaryString = atob(tx.tx);
@@ -358,9 +307,14 @@ class CheqdApiService {
         // Look for credential definition tag
         const tagMatch = binaryString.match(/"tag":"([^"]+)"/);
         if (tagMatch) {
-          return `CL Definition (${tagMatch[1]})`;
+          // Try to extract the actual definition type from the transaction
+          const typeMatch = binaryString.match(/"type":"([^"]+)"/); 
+          const defType = typeMatch ? typeMatch[1] : 'Definition';
+          return `${defType} (${tagMatch[1]})`;
         }
-        return 'CL Definition';
+        // Try to extract definition type without tag
+        const typeMatch = binaryString.match(/"type":"([^"]+)"/); 
+        return typeMatch ? `${typeMatch[1]} Definition` : 'Definition';
       }
       return undefined;
     } catch (error) {
@@ -370,11 +324,11 @@ class CheqdApiService {
 
   async getDidDocuments(): Promise<DidDocument[]> {
     try {
-      const response = await this.makeRpcRequest('/tx_search?query="message.action=\'/cheqd.did.v2.MsgCreateDidDoc\'"&per_page=50');
+      const response = await this.makeRpcRequest<TransactionSearchResponse>('/tx_search?query="message.action=\'/cheqd.did.v2.MsgCreateDidDoc\'"&per_page=50');
       const txs = response.result?.txs || [];
       
       const didDocuments = await Promise.all(
-        txs.map(async (tx: any) => {
+        txs.map(async (tx: TransactionData) => {
           let didId = `did:cheqd:testnet:${tx.hash.substring(0, 16)}`;
           
           try {
@@ -412,16 +366,16 @@ class CheqdApiService {
 
   async getResources(): Promise<ResourceData[]> {
     try {
-      const response = await this.makeRpcRequest('/tx_search?query="message.action=\'/cheqd.resource.v2.MsgCreateResource\'"&per_page=50');
+      const response = await this.makeRpcRequest<TransactionSearchResponse>('/tx_search?query="message.action=\'/cheqd.resource.v2.MsgCreateResource\'"&per_page=50');
       const txs = response.result?.txs || [];
       
       const resources = await Promise.all(
-        txs.map(async (tx: any) => {
+        txs.map(async (tx: TransactionData) => {
           const contentInfo = this.extractContentInfo(tx);
           const didId = this.extractDidFromTx(tx);
           const timestamp = await this.extractTimestamp(tx);
           
-          let content = null;
+          let content: Record<string, unknown> | undefined;
           let attributes: string[] = [];
           let relatedSchemaId: string | undefined;
           let tag: string | undefined;
@@ -454,7 +408,10 @@ class CheqdApiService {
                 const tagMatch = binaryString.match(/"tag":"([^"]+)"/);
                 if (tagMatch) {
                   tag = tagMatch[1];
-                  name = `Credential Definition (${tag})`;
+                  // Extract actual definition type from transaction data
+                  const typeMatch = binaryString.match(/"type":"([^"]+)"/); 
+                  const defType = typeMatch ? typeMatch[1] : 'Credential';
+                  name = `${defType} Definition (${tag})`;
                 }
                 
                 // Try to find related schema ID
@@ -510,12 +467,11 @@ class CheqdApiService {
     }
   }
 
-
   async getNetworkStats(): Promise<NetworkStats> {
     try {
       const [didTxs, resourceTxs, activeValidators] = await Promise.all([
-        this.makeRpcRequest('/tx_search?query="message.action=\'/cheqd.did.v2.MsgCreateDidDoc\'"&per_page=1'),
-        this.makeRpcRequest('/tx_search?query="message.action=\'/cheqd.resource.v2.MsgCreateResource\'"&per_page=1'),
+        this.makeRpcRequest<TransactionSearchResponse>('/tx_search?query="message.action=\'/cheqd.did.v2.MsgCreateDidDoc\'"&per_page=1'),
+        this.makeRpcRequest<TransactionSearchResponse>('/tx_search?query="message.action=\'/cheqd.resource.v2.MsgCreateResource\'"&per_page=1'),
         this.getActiveValidators()
       ]);
 
@@ -528,10 +484,10 @@ class CheqdApiService {
       let totalDefinitions = 0;
       
       try {
-        const allResourceTxs = await this.makeRpcRequest('/tx_search?query="message.action=\'/cheqd.resource.v2.MsgCreateResource\'"&per_page=100');
+        const allResourceTxs = await this.makeRpcRequest<TransactionSearchResponse>('/tx_search?query="message.action=\'/cheqd.resource.v2.MsgCreateResource\'"&per_page=100');
         const resourceTransactions = allResourceTxs.result?.txs || [];
         
-        resourceTransactions.forEach((tx: any) => {
+        resourceTransactions.forEach((tx: TransactionData) => {
           const contentInfo = this.extractContentInfo(tx);
           if (contentInfo.contentType === 'Schema') {
             totalSchemas++;
@@ -558,9 +514,6 @@ class CheqdApiService {
     }
   }
 
-
-
-
   async getDashboardData(): Promise<DashboardData> {
     
     const connectionStatus: ConnectionStatus = {
@@ -570,9 +523,6 @@ class CheqdApiService {
     };
 
     try {
-      // Get network health and basic info
-      const networkHealth = await this.getNetworkStatus();
-
       // Get real network statistics
       const stats = await this.getNetworkStats();
 
@@ -593,7 +543,6 @@ class CheqdApiService {
         stats,
         recentTransactions,
         activeValidators,
-        networkHealth,
         connectionStatus
       };
     } catch (error) {

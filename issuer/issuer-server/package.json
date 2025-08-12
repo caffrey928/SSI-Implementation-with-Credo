@@ -5,14 +5,19 @@
     "license": "UNLICENSED",
     "private": true,
     "scripts": {
-        "issuer": "ts-node src/start-issuer.ts"
+        "dev": "ts-node src/server.ts"
     },
     "devDependencies": {
         "@types/node": "^24.1.0",
+        "@types/express": "^5.0.3",
+        "@types/cors": "^2.8.19",
         "typescript": "^5.9.2",
         "ts-node": "^10.9.2"
     },
     "dependencies": {
+        "express": "^5.1.0",
+        "cors": "^2.8.5",
+        "http-proxy-middleware": "^3.0.5",
         "@credo-ts/anoncreds": "0.5.0",
         "@credo-ts/askar": "0.5.0",
         "@credo-ts/cheqd": "0.5.0",

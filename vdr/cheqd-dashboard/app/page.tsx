@@ -9,7 +9,7 @@ import LatestTransactions from './components/LatestTransactions';
 import TransactionPage from './components/TransactionPage';
 import DidPage from './components/DidPage';
 import SchemaDefinitionPage from './components/SchemaDefinitionPage';
-import { DashboardData } from '../lib/types/dashboard';
+import { DashboardData, BlockInfo, ActiveValidator } from '../lib/types/dashboard';
 import { cheqdApiService } from '../lib/services/cheqdApi';
 
 export default function Home() {
@@ -28,8 +28,8 @@ export default function Home() {
   const [autoRefresh] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
   const [blockUpdateInterval, setBlockUpdateInterval] = useState<NodeJS.Timeout | null>(null);
-  const [recentBlocks, setRecentBlocks] = useState<any[]>([]);
-  const [validators, setValidators] = useState<any[]>([]);
+  const [recentBlocks, setRecentBlocks] = useState<BlockInfo[]>([]);
+  const [validators, setValidators] = useState<ActiveValidator[]>([]);
   
   // Refs to trigger refresh in child components
   const transactionPageRef = useRef<{ refreshData: () => void } | null>(null);
@@ -185,10 +185,20 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="flex items-center justify-center min-h-screen" style={{background: 'linear-gradient(135deg, rgba(40, 45, 95, 0.95), rgba(55, 75, 175, 0.9), rgba(75, 95, 195, 0.85), rgba(45, 85, 135, 0.95))'}}>
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Connecting to cheqd network...</p>
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-12 border border-white/20" style={{boxShadow: '0 0 40px rgba(158, 202, 214, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)'}}>
+            <div className="animate-spin rounded-full h-24 w-24 border-4 border-transparent border-t-white/80 border-r-blue-400/60 mx-auto mb-8"></div>
+            <div className="space-y-3">
+              <h2 className="text-xl font-bold text-white">Connecting to cheqd network</h2>
+              <p className="text-slate-200 font-medium">Please wait while we establish connection...</p>
+              <div className="flex items-center justify-center space-x-2 mt-4">
+                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                <div className="w-2 h-2 bg-blue-300 rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -196,24 +206,31 @@ export default function Home() {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="flex items-center justify-center min-h-screen" style={{background: 'linear-gradient(135deg, rgba(40, 45, 95, 0.95), rgba(55, 75, 175, 0.9), rgba(75, 95, 195, 0.85), rgba(45, 85, 135, 0.95))'}}>
         <div className="text-center max-w-lg px-6">
-          <div className="mb-4">
-            <span className="text-6xl">⚠️</span>
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-12 border border-white/20" style={{boxShadow: '0 0 40px rgba(158, 202, 214, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)'}}>
+            <div className="mb-6">
+              <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-red-400/20 to-orange-500/20 backdrop-blur-sm border border-red-300/30 flex items-center justify-center">
+                <span className="text-4xl">⚠️</span>
+              </div>
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-4">Network Connection Failed</h2>
+            <p className="text-slate-200 mb-6 leading-relaxed">{error}</p>
+            <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 mb-6 space-y-2 border border-white/10">
+              <div className="text-sm text-slate-300 space-y-1">
+                <p><span className="text-blue-300 font-medium">RPC URL:</span> {process.env.NEXT_PUBLIC_CHEQD_RPC_URL || 'http://localhost:27157'}</p>
+                <p><span className="text-blue-300 font-medium">REST URL:</span> {process.env.NEXT_PUBLIC_CHEQD_REST_URL || 'http://localhost:1817'}</p>
+                <p><span className="text-blue-300 font-medium">Network:</span> {process.env.NEXT_PUBLIC_NETWORK_TYPE || 'localnet'}</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => window.location.reload()}
+              className="px-8 py-3 bg-white/20 backdrop-blur-md text-white font-semibold rounded-xl hover:bg-white/30 transition-all duration-300 transform hover:scale-105 border border-white/20"
+              style={{boxShadow: '0 0 25px rgba(158, 202, 214, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.2)'}}
+            >
+              Retry Connection
+            </button>
           </div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Network Connection Failed</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <div className="text-sm text-gray-500 mb-4 space-y-1">
-            <p>RPC URL: {process.env.NEXT_PUBLIC_CHEQD_RPC_URL || 'http://localhost:27157'}</p>
-            <p>REST URL: {process.env.NEXT_PUBLIC_CHEQD_REST_URL || 'http://localhost:1817'}</p>
-            <p>Network: {process.env.NEXT_PUBLIC_NETWORK_TYPE || 'localnet'}</p>
-          </div>
-          <button 
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Retry Connection
-          </button>
         </div>
       </div>
     );
