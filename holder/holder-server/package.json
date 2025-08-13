@@ -5,9 +5,7 @@
   "license": "UNLICENSED",
   "private": true,
   "scripts": {
-    "dev": "ts-node src/server.ts",
-    "holder": "ts-node src/start-holder.ts",
-    "holder-verifier": "ts-node src/start-holder-verifier.ts"
+    "dev": "ts-node src/server.ts"
   },
   "devDependencies": {
     "@types/node": "^24.1.0",

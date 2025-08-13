@@ -28,7 +28,7 @@ import {
 } from "@credo-ts/cheqd";
 import { DidsModule } from "@credo-ts/core";
 
-import { createBaseAgent } from "./agentUtils";
+import { createBaseAgent } from "./agentConfig";
 import { StudentCredential } from "../types/types";
 import { CleanupManager } from "../utils/cleanupManager";
 

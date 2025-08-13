@@ -1,8 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { createProxyMiddleware } from 'http-proxy-middleware';
-import { HolderAgent } from './holder-agent';
-import { CredentialData } from './types';
+import { HolderAgent } from './agent/agent';
 
 const app = express();
 const PORT = 4002;

@@ -33,8 +33,8 @@ import {
   CheqdDidResolver,
 } from "@credo-ts/cheqd";
 
-import { createBaseAgent } from "./utils";
-import { CredentialData, ProofRequestData } from "./types";
+import { createBaseAgent } from "./agentConfig";
+import { CredentialData, ProofRequestData } from "../types/types";
 import { HttpInboundTransport } from "@credo-ts/node";
 
 export class HolderAgent {
