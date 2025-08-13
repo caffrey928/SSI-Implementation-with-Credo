@@ -16,7 +16,7 @@ const holderAgent = new HolderAgent();
 // API Routes
 
 // Status check endpoint
-app.get('/status', async (req, res) => {
+app.get('/status', async (_, res) => {
   try {
     const status = holderAgent.getStatus();
     const storedCredentials = await holderAgent.getStoredCredentials();
@@ -33,7 +33,7 @@ app.get('/status', async (req, res) => {
 });
 
 // Get stored credentials endpoint
-app.get('/credentials', async (req, res) => {
+app.get('/credentials', async (_, res) => {
   try {
     const storedCredentials = await holderAgent.getStoredCredentials();
     res.json(storedCredentials);

@@ -26,3 +26,11 @@ export interface ProofRequest {
     }>;
   }>;
 }
+
+export interface PendingProofRequest {
+  outOfBandId: string;
+  type: 'age' | 'student';
+  createdAt: Date;
+}
+
+export type VerificationRequestType = 'age' | 'student';

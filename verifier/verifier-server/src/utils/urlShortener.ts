@@ -22,7 +22,7 @@ export class UrlShortener {
   /**
    * Create a short URL for a long invitation URL
    * @param originalUrl The long invitation URL
-   * @param baseUrl The base URL for the short link (e.g., 'http://localhost:4001')
+   * @param baseUrl The base URL for the short link (e.g., 'http://localhost:4003')
    * @param expiryMinutes How long the short URL should be valid (default: 1 minutes)
    * @returns The shortened URL
    */
@@ -39,9 +39,8 @@ export class UrlShortener {
       expiresAt
     });
     
-    console.log(`Created short URL: ${shortId}`);
     
-    return `${baseUrl}/invite/${shortId}`;
+    return `${baseUrl}/verify/${shortId}`;
   }
 
   /**
@@ -103,9 +102,6 @@ export class UrlShortener {
       this.urlMappings.delete(id);
     });
     
-    if (expiredIds.length > 0) {
-      console.log(`Cleaned up ${expiredIds.length} expired short URLs`);
-    }
   }
 
   /**

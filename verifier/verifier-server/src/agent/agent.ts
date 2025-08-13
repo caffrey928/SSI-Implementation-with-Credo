@@ -27,9 +27,14 @@ import {
   CheqdDidRegistrar,
   CheqdDidResolver,
 } from "@credo-ts/cheqd";
-import { createBaseAgent } from "./utils";
-import { ProofRequest } from "./types";
+import { createBaseAgent } from "./agentConfig";
+import {
+  ProofRequest,
+  PendingProofRequest,
+  VerificationRequestType,
+} from "../types/types";
 import { HttpInboundTransport } from "@credo-ts/node";
+import { CleanupManager } from "../utils/cleanupManager";
 
 export class VerifierAgent {
   private agent!: Agent<{
@@ -40,9 +45,19 @@ export class VerifierAgent {
     proofs: ProofsModule<[V2ProofProtocol<[AnonCredsProofFormatService]>]>;
   }>;
   private initialized = false;
-  private minAge = 18;
   private cred_def_id = process.env.RESTRICTION_CREDENTIALS_DEFINITION_ID || "";
   private schema_id = process.env.RESTRICTION_SCHEMA_ID || "";
+  private pendingProofRequests = new Map<string, PendingProofRequest>();
+  private cleanupManager: CleanupManager;
+  private verificationCallback?: (result: any) => void;
+
+  constructor() {
+    this.cleanupManager = new CleanupManager(
+      () => this.cleanupExpiredProofRequests(),
+      5000,
+      "Expired Pending Proof Requests"
+    );
+  }
 
   async initialize() {
     if (this.initialized) return;
@@ -97,7 +112,6 @@ export class VerifierAgent {
     await this.agent
       .initialize()
       .then(async () => {
-        console.log("Verifier Agent initialized!");
         this.setupEventListeners();
         this.initialized = true;
       })
@@ -114,28 +128,36 @@ export class VerifierAgent {
       ConnectionEventTypes.ConnectionStateChanged,
       async ({ payload }) => {
         const connectionRecord = payload.connectionRecord as ConnectionRecord;
-        console.log(`Connection state changed: ${connectionRecord.state}`);
 
         if (connectionRecord.state === DidExchangeState.RequestReceived) {
-          console.log("Connection request received, accepting...");
           try {
             await this.agent.connections.acceptRequest(connectionRecord.id);
-            console.log("Connection request accepted");
           } catch (error) {
-            console.error("Error accepting connection request:", error);
+            console.error("❌ Error accepting connection request:", error);
           }
         }
 
         if (connectionRecord.state === DidExchangeState.Completed) {
-          console.log("Connection established, sending proof request...");
+          // Find the pending proof request using the outOfBandId from the connection
+          const outOfBandId = connectionRecord.outOfBandId;
 
-          const proofRequestData = await this.createVerificationRestriction(
-            this.minAge,
-            this.cred_def_id,
-            this.schema_id
-          );
+          if (outOfBandId && this.pendingProofRequests.has(outOfBandId)) {
+            const pendingRequest = this.pendingProofRequests.get(outOfBandId)!;
 
-          await this.sendProofRequest(connectionRecord.id, proofRequestData);
+            // Generate the appropriate proof request based on type
+            let proofRequestData: ProofRequest;
+            if (pendingRequest.type === "age") {
+              proofRequestData = this.createAgeVerificationRequest();
+            } else {
+              proofRequestData = this.createStudentVerificationRequest();
+            }
+
+            // Send the proof request
+            await this.sendProofRequest(connectionRecord.id, proofRequestData);
+
+            // Clean up the pending request
+            this.pendingProofRequests.delete(outOfBandId);
+          }
         }
       }
     );
@@ -144,16 +166,12 @@ export class VerifierAgent {
       ProofEventTypes.ProofStateChanged,
       async ({ payload }) => {
         const proofRecord = payload.proofRecord as ProofExchangeRecord;
-        console.log(`Proof state changed: ${proofRecord.state}`);
 
         if (proofRecord.state === ProofState.PresentationReceived) {
-          console.log("Presentation received, verifying proof...");
-
           await this.verifyProof(proofRecord);
         }
 
         if (proofRecord.state === ProofState.Done) {
-          console.log("Proof verification completed");
         }
       }
     );
@@ -164,11 +182,9 @@ export class VerifierAgent {
 
     const cheqdDid = dids.find((did) => did.did.startsWith("did:cheqd:"));
     if (cheqdDid) {
-      console.log(`Using existing cheqd DID: ${cheqdDid.did}`);
       return cheqdDid.did;
     }
 
-    console.log("Creating new cheqd DID for verifier...");
     const didResult = await this.agent.dids.create({
       method: "cheqd",
       secret: {
@@ -184,7 +200,6 @@ export class VerifierAgent {
     });
 
     if (didResult.didState.state === "finished") {
-      console.log(`Created new cheqd DID: ${didResult.didState.did}`);
       return didResult.didState.did!;
     } else {
       throw new Error(
@@ -193,32 +208,26 @@ export class VerifierAgent {
     }
   }
 
-  async createProofRequest(proofRequestData: ProofRequest) {
-    console.log(`\n🔍 Creating new proof request: ${proofRequestData.name}`);
-    console.log(`⏰ Timestamp: ${new Date().toISOString()}`);
-
+  async createProofRequest(requestType: VerificationRequestType) {
     const outOfBandRecord = await this.agent.oob.createInvitation({
       handshakeProtocols: [HandshakeProtocol.DidExchange],
     });
-    const outOfBandId = outOfBandRecord.outOfBandInvitation.id;
-    const recordId = outOfBandRecord.id;
+    const outOfBandId = outOfBandRecord.id;
 
-    console.log(`📧 OutOfBand invitation ID: ${outOfBandId}`);
-    console.log(`📋 OutOfBand record ID: ${recordId}`);
+    // Store the pending proof request with its type
+    this.pendingProofRequests.set(outOfBandId, {
+      outOfBandId,
+      type: requestType,
+      createdAt: new Date(),
+    });
 
     const invitationUrl = outOfBandRecord.outOfBandInvitation.toUrl({
       domain: "http://localhost:3003",
     });
 
-    console.log(`🔗 Generated invitation URL: ${invitationUrl}`);
-    console.log(`📏 URL length: ${invitationUrl.length} characters`);
-
-    console.log(`✅ Proof request created: ${proofRequestData.name}\n`);
-
     return {
       invitationUrl,
       outOfBandId,
-      proofRequestData,
     };
   }
 
@@ -240,10 +249,6 @@ export class VerifierAgent {
         },
       });
 
-      console.log(
-        `✅ Proof request sent successfully: ${proofRequestData.name}`
-      );
-      console.log(`Proof record ID: ${proofRecord.id}`);
       return proofRecord;
     } catch (error) {
       console.error("❌ Error sending proof request:", error);
@@ -251,11 +256,7 @@ export class VerifierAgent {
     }
   }
 
-  private async createVerificationRestriction(
-    minAge: number = 18,
-    cred_def_id?: string,
-    schema_id?: string
-  ) {
+  private createAgeVerificationRequest(minAge: number = 18): ProofRequest {
     const currentDate = new Date();
     const maxBirthDate = new Date(
       currentDate.getFullYear() - minAge,
@@ -268,17 +269,48 @@ export class VerifierAgent {
 
     const restrictions = [];
     const restriction: any = {};
-    
-    if (cred_def_id) {
-      restriction.cred_def_id = cred_def_id;
+
+    if (this.cred_def_id) {
+      restriction.cred_def_id = this.cred_def_id;
     }
-    if (schema_id) {
-      restriction.schema_id = schema_id;
+    if (this.schema_id) {
+      restriction.schema_id = this.schema_id;
     }
-    restrictions.push(restriction);
-    
-    const proofRequest: ProofRequest = {
-      name: `Student & ${minAge}+ years`,
+    if (Object.keys(restriction).length > 0) {
+      restrictions.push(restriction);
+    }
+
+    return {
+      name: `Age Verification (${minAge}+ years)`,
+      version: "1.0",
+      requestedAttributes: {},
+      requestedPredicates: {
+        age_verification: {
+          name: "birthDate",
+          p_type: "<=" as const,
+          p_value: maxBirthDateNumber,
+          restrictions: restrictions.length > 0 ? restrictions : undefined,
+        },
+      },
+    };
+  }
+
+  private createStudentVerificationRequest(): ProofRequest {
+    const restrictions = [];
+    const restriction: any = {};
+
+    if (this.cred_def_id) {
+      restriction.cred_def_id = this.cred_def_id;
+    }
+    if (this.schema_id) {
+      restriction.schema_id = this.schema_id;
+    }
+    if (Object.keys(restriction).length > 0) {
+      restrictions.push(restriction);
+    }
+
+    return {
+      name: "Student Status Verification",
       version: "1.0",
       requestedAttributes: {
         university: {
@@ -289,24 +321,21 @@ export class VerifierAgent {
           name: "isStudent",
           restrictions: restrictions.length > 0 ? restrictions : undefined,
         },
-      },
-      requestedPredicates: {
-        age_over_18: {
-          name: "birthDate",
-          p_type: "<=" as const,
-          p_value: maxBirthDateNumber,
+        name: {
+          name: "name",
+          restrictions: restrictions.length > 0 ? restrictions : undefined,
+        },
+        studentId: {
+          name: "studentId",
           restrictions: restrictions.length > 0 ? restrictions : undefined,
         },
       },
+      requestedPredicates: {},
     };
-
-    return proofRequest;
   }
 
   private async verifyProof(proofRecord: ProofExchangeRecord) {
     try {
-      console.log(`Verifying proof for record: ${proofRecord.id}`);
-
       const result = await this.agent.proofs.acceptPresentation({
         proofRecordId: proofRecord.id,
       });
@@ -339,22 +368,84 @@ export class VerifierAgent {
         }
       }
 
-      const isStudentValid = attributes.isStudent === "true";
-      const allChecksPass = isValid && isStudentValid;
+      // Determine verification type based on what was requested
+      const hasStudentAttributes =
+        "isStudent" in attributes || "university" in attributes;
+      const hasAgeVerification = "age_verification" in predicates;
 
-      console.log(`Verification result:`, {
-        attributes,
-        predicates: Object.keys(predicates).length > 0 ? predicates : "none",
-      });
+      let verificationPassed = false;
 
-      if(allChecksPass) {
-        console.log("✅ VERIFICATION PASSED");
+      if (hasStudentAttributes && hasAgeVerification) {
+        const isStudentValid = attributes.isStudent === "true";
+        const isUniversityValid =
+          attributes.university === "National Taiwan University";
+        const hasAllRequiredFields =
+          "name" in attributes &&
+          "studentId" in attributes &&
+          "university" in attributes &&
+          "isStudent" in attributes;
+        verificationPassed =
+          isValid &&
+          isStudentValid &&
+          isUniversityValid &&
+          hasAllRequiredFields;
+      } else if (hasStudentAttributes) {
+        const isStudentValid = attributes.isStudent === "true";
+        const isUniversityValid =
+          attributes.university === "National Taiwan University";
+        const hasAllRequiredFields =
+          "name" in attributes &&
+          "studentId" in attributes &&
+          "university" in attributes &&
+          "isStudent" in attributes;
+        verificationPassed =
+          isValid &&
+          isStudentValid &&
+          isUniversityValid &&
+          hasAllRequiredFields;
+      } else if (hasAgeVerification) {
+        verificationPassed = isValid;
+      }
+
+      if (!verificationPassed) {
+        console.error(
+          "❌ Proof verification failed. Invalid attributes or predicates."
+        );
       } else {
-        console.log("❌ VERIFICATION FAILED");
+        console.log("✅ Proof verified successfully!");
+        // Send success to frontend with complete VP
+        if (this.verificationCallback) {
+          this.verificationCallback({
+            attributes,
+            predicates,
+          });
+        }
       }
     } catch (error) {
       console.error("Error verifying proof:", error);
       throw error;
+    }
+  }
+
+  private cleanupExpiredProofRequests() {
+    const now = new Date();
+    const expiredKeys: string[] = [];
+
+    // Find proof requests older than 1 minute (60000 ms)
+    for (const [key, data] of this.pendingProofRequests.entries()) {
+      const timeDiff = now.getTime() - data.createdAt.getTime();
+      if (timeDiff > 60000) {
+        // 1 minute
+        expiredKeys.push(key);
+      }
+    }
+
+    // Remove expired proof requests
+    expiredKeys.forEach((key) => {
+      this.pendingProofRequests.delete(key);
+    });
+
+    if (expiredKeys.length > 0) {
     }
   }
 
@@ -368,19 +459,23 @@ export class VerifierAgent {
     return this.agent;
   }
 
+  setVerificationCallback(callback: (result: any) => void) {
+    this.verificationCallback = callback;
+  }
+
   async start() {
     if (!this.initialized) {
       await this.initialize();
     }
+    this.cleanupManager.start();
     console.log("🚀 Verifier Agent started successfully!");
     console.log(`📍 Listening on: http://localhost:3003`);
-    console.log(`🔑 Verifier DID: ${await this.getDid()}`);
   }
 
   async stop() {
+    this.cleanupManager.stop();
     if (this.agent) {
       await this.agent.shutdown();
-      console.log("Verifier Agent stopped");
     }
   }
 }
