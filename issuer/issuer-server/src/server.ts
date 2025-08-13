@@ -46,8 +46,6 @@ app.get('/status', async (req, res) => {
   try {
     const status = issuerAgent.getAgentStatus();
     res.json({
-      status: 'ok',
-      timestamp: new Date().toISOString(),
       agent: status
     });
   } catch (error) {

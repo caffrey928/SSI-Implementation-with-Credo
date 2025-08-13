@@ -339,7 +339,7 @@ export class HolderAgent {
       return true;
     } catch (error) {
       console.error("Error processing proof request:", error);
-      
+
       return false;
     }
   }
@@ -348,18 +348,67 @@ export class HolderAgent {
     try {
       const credentialRecords = await this.agent.credentials.getAll();
 
-      return credentialRecords
-        .filter((record) => record.role === "holder")
-        .map((record) => ({
-          credentialId: record.id,
-          attributes: {},
-          schemaId: record.metadata.get("schemaId")?.toString(),
-          credentialDefinitionId: record.metadata
-            .get("credentialDefinitionId")
-            ?.toString(),
-          issuedAt: record.createdAt,
-          issuerDid: record.metadata.get("issuerId")?.toString(),
-        }));
+      const credentialsWithDetails = await Promise.all(
+        credentialRecords
+          .filter((record) => record.role === "holder")
+          .map(async (record) => {
+            // Extract attributes from credentialAttributes
+            const attributes: Record<string, string> = {};
+            if (record.credentialAttributes) {
+              record.credentialAttributes.forEach((attr) => {
+                attributes[attr.name] = attr.value;
+              });
+            }
+
+            // Get credential metadata from anoncreds
+            const credentialMetadata = record.metadata.get(
+              "_anoncreds/credential"
+            );
+
+            let credDefDetails = null;
+            let schemaDetails = null;
+
+            // Try to get credential definition details if credentialDefinitionId exists
+            if (credentialMetadata?.credentialDefinitionId) {
+              try {
+                credDefDetails =
+                  await this.agent.modules.anoncreds.getCredentialDefinition(
+                    credentialMetadata.credentialDefinitionId
+                  );
+              } catch (error) {
+                console.log(
+                  "Could not fetch credential definition details:",
+                  error
+                );
+              }
+            }
+
+            // Try to get schema details if schemaId exists
+            if (credentialMetadata?.schemaId) {
+              try {
+                schemaDetails = await this.agent.modules.anoncreds.getSchema(
+                  credentialMetadata.schemaId
+                );
+              } catch (error) {
+                console.log("Could not fetch schema details:", error);
+              }
+            }
+
+            return {
+              credentialId: record.id,
+              attributes,
+              schemaId: credentialMetadata?.schemaId,
+              credentialDefinitionId:
+                credentialMetadata?.credentialDefinitionId,
+              issuedAt: record.createdAt,
+              issuerId: credDefDetails?.credentialDefinition?.issuerId,
+              definitionType: credDefDetails?.credentialDefinition?.type,
+              schemaName: schemaDetails?.schema?.name,
+            };
+          })
+      );
+
+      return credentialsWithDetails;
     } catch (error) {
       console.error("Error getting stored credentials:", error);
       return [];

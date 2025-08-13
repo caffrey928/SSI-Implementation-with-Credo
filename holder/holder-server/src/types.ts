@@ -7,6 +7,9 @@ export interface CredentialData {
   credentialDefinitionId?: string;
   issuedAt: Date;
   issuerDid?: string;
+  issuerId?: string;
+  definitionType?: string;
+  schemaName?: string;
 }
 
 export interface ProofRequestData {

@@ -341,7 +341,6 @@ export class IssuerAgent {
     const outOfBandRecord = await this.agent.oob.createInvitation({
       handshakeProtocols: [HandshakeProtocol.DidExchange],
     });
-    const outOfBandId = outOfBandRecord.outOfBandInvitation.id;
     const recordId = outOfBandRecord.id;
 
     const invitationUrl = outOfBandRecord.outOfBandInvitation.toUrl({
@@ -412,16 +411,76 @@ export class IssuerAgent {
   }
 
   async getIssuedCredentials() {
-    const credentials = await this.agent.credentials.getAll();
-    return credentials
-      .filter((cred) => cred.role === "issuer")
-      .map((cred) => ({
-        id: cred.id,
-        type: cred.type,
-        state: cred.state,
-        createdAt: cred.createdAt,
-        metadata: cred.metadata,
-      }));
+    try {
+      const credentialRecords = await this.agent.credentials.getAll();
+
+      const credentialsWithDetails = await Promise.all(
+        credentialRecords
+          .filter((record) => record.role === "issuer" && record.state === "done")
+          .map(async (record) => {
+            // Extract attributes from credentialAttributes
+            const attributes: Record<string, string> = {};
+            if (record.credentialAttributes) {
+              record.credentialAttributes.forEach((attr) => {
+                attributes[attr.name] = attr.value;
+              });
+            }
+
+            // Get credential metadata from anoncreds
+            const credentialMetadata = record.metadata.get(
+              "_anoncreds/credential"
+            );
+
+            let credDefDetails = null;
+            let schemaDetails = null;
+
+            // Try to get credential definition details if credentialDefinitionId exists
+            if (credentialMetadata?.credentialDefinitionId) {
+              try {
+                credDefDetails =
+                  await this.agent.modules.anoncreds.getCredentialDefinition(
+                    credentialMetadata.credentialDefinitionId
+                  );
+              } catch (error) {
+                console.log(
+                  "Could not fetch credential definition details:",
+                  error
+                );
+              }
+            }
+
+            // Try to get schema details if schemaId exists
+            if (credentialMetadata?.schemaId) {
+              try {
+                schemaDetails = await this.agent.modules.anoncreds.getSchema(
+                  credentialMetadata.schemaId
+                );
+              } catch (error) {
+                console.log("Could not fetch schema details:", error);
+              }
+            }
+
+            return {
+              credentialId: record.id,
+              studentName: attributes.name || 'Unknown',
+              studentId: attributes.studentId || 'Unknown', 
+              university: attributes.university || 'Unknown',
+              issuedAt: record.createdAt,
+              attributes,
+              schemaId: credentialMetadata?.schemaId,
+              credentialDefinitionId: credentialMetadata?.credentialDefinitionId,
+              issuerId: credDefDetails?.credentialDefinition?.issuerId,
+              definitionType: credDefDetails?.credentialDefinition?.type,
+              schemaName: schemaDetails?.schema?.name,
+            };
+          })
+      );
+      
+      return credentialsWithDetails;
+    } catch (error) {
+      console.error("Error getting issued credentials:", error);
+      return [];
+    }
   }
 
   updatePendingCredentialUrl(recordId: string, shortUrl: string) {
@@ -505,7 +564,6 @@ export class IssuerAgent {
 
   getAgentStatus() {
     return {
-      pendingCredentials: this.pendingCredentials.size,
       schemaId: this.schemaId,
       credentialDefinitionId: this.credentialDefinitionId,
       initialized: this.initialized,

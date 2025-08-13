@@ -1,7 +1,7 @@
 {
-    "name": "ssi-experiment",
+    "name": "ssi-issuer-server",
     "version": "1.0.0",
-    "description": "SSI Issuer Agent implementation using Credo-TS",
+    "description": "SSI Issuer Server implementation using Credo-TS",
     "license": "UNLICENSED",
     "private": true,
     "scripts": {

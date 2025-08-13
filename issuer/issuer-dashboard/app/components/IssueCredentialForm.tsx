@@ -128,13 +128,13 @@ const IssueCredentialForm: React.FC<IssueCredentialFormProps> = ({ onCredentialI
             <div className="flex space-x-4 justify-center">
               <button
                 onClick={() => navigator.clipboard.writeText(credentialOffer.invitationUrl)}
-                className="px-6 py-3 bg-blue-600/80 backdrop-blur-md text-white font-semibold rounded-xl hover:bg-blue-600 transition-all duration-300 border border-blue-500/30"
+                className="px-8 py-4 rounded-xl text-white font-semibold backdrop-blur-md border transition-all duration-300 border-green-400 bg-green-500/30 hover:bg-green-500/50 hover:border-green-300"
               >
                 Copy URL
               </button>
               <button
                 onClick={resetOffer}
-                className="px-6 py-3 bg-white/20 backdrop-blur-md text-white font-semibold rounded-xl hover:bg-white/30 transition-all duration-300 border border-white/20"
+                className="px-8 py-4 rounded-xl text-white font-semibold backdrop-blur-md border transition-all duration-300 border-pink-400 bg-pink-500/35 hover:bg-pink-500/55 hover:border-pink-300"
               >
                 Issue Another
               </button>
@@ -238,7 +238,7 @@ const IssueCredentialForm: React.FC<IssueCredentialFormProps> = ({ onCredentialI
             <button
               type="submit"
               disabled={loading}
-              className="px-8 py-4 rounded-xl text-white font-semibold backdrop-blur-md border disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 border-white/50 hover:bg-white/10"
+              className="px-8 py-4 rounded-xl text-white font-semibold backdrop-blur-md border transition-all duration-300 border-white/70 hover:bg-white/20 hover:border-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <div className="flex items-center space-x-2">

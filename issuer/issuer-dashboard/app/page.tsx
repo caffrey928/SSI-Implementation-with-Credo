@@ -10,7 +10,15 @@ import { issuerApiService } from '../lib/services/issuerApi';
 import { IssuedCredential, AgentStatus, CredentialOffer } from '../lib/types';
 
 export default function IssuerDashboard() {
-  const [currentPage, setCurrentPage] = useState('issue');
+  const [currentPage, setCurrentPage] = useState(() => {
+    // Restore page state from URL hash on browser refresh
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.replace('#', '');
+      const validPages = ['issue', 'pending', 'issued'];
+      return validPages.includes(hash) ? hash : 'issue';
+    }
+    return 'issue';
+  });
   const [issuedCredentials, setIssuedCredentials] = useState<IssuedCredential[]>([]);
   const [loading, setLoading] = useState(true);
   const [agentStatus, setAgentStatus] = useState<AgentStatus | null>(null);
@@ -50,7 +58,7 @@ export default function IssuerDashboard() {
       setAgentStatus(status.agent);
     } catch (error) {
       console.error('Failed to check status:', error);
-      setAgentStatus({ initialized: false, pendingCredentials: 0 });
+      setAgentStatus({ initialized: false });
     }
   };
 
@@ -107,9 +115,17 @@ export default function IssuerDashboard() {
     }
   };
 
+  // Custom setCurrentPage function that also updates URL hash
+  const handlePageChange = (page: string) => {
+    setCurrentPage(page);
+    if (typeof window !== 'undefined') {
+      window.location.hash = page === 'issue' ? '' : page;
+    }
+  };
+
   return (
-    <div className="flex h-screen" style={{background: 'linear-gradient(135deg, rgba(40, 45, 95, 0.95), rgba(55, 75, 175, 0.9), rgba(75, 95, 195, 0.85), rgba(45, 85, 135, 0.95))'}}>
-      <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} />
+    <div className="flex h-screen overflow-hidden" style={{background: 'linear-gradient(135deg, rgba(40, 45, 95, 0.95), rgba(55, 75, 175, 0.9), rgba(75, 95, 195, 0.85), rgba(45, 85, 135, 0.95))'}}>
+      <Sidebar currentPage={currentPage} onPageChange={handlePageChange} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header 
           currentPage={currentPage}

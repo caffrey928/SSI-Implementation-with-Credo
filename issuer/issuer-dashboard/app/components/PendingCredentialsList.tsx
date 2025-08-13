@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { issuerApiService } from '../../lib/services/issuerApi';
 import { PendingCredential } from '../../lib/types';
 import { formatDate, getTimeUntilExpiry } from '../../lib/utils/dateUtils';
-import { STYLES } from '../../lib/styles/constants';
 
 interface PendingCredentialsListProps {
   onRefresh: () => void;
@@ -60,7 +59,7 @@ const PendingCredentialsList: React.FC<PendingCredentialsListProps> = ({ onRefre
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12">
-        <div className={STYLES.SPINNER_LARGE}></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-2 border-transparent border-t-white/80 border-r-blue-400/60"></div>
       </div>
     );
   }
@@ -68,16 +67,22 @@ const PendingCredentialsList: React.FC<PendingCredentialsListProps> = ({ onRefre
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-white"></h2>
+        <div>
+          <h2 className="text-2xl font-bold text-white">Pending Credentials</h2>
+          <p className="text-slate-300 mt-1">
+            Total: {pendingCredentials.length} pending credential
+            {pendingCredentials.length !== 1 ? "s" : ""}
+          </p>
+        </div>
         <div className="flex items-center space-x-4">
           <button
             onClick={() => loadPendingCredentials(false, true)}
             disabled={refreshing}
-            className={`${STYLES.BUTTON_BASE} ${STYLES.BUTTON_PRIMARY} ${STYLES.BUTTON_DISABLED}`}
+className="px-4 py-2 rounded-xl text-sm font-semibold backdrop-blur-md border text-white transition-all duration-300 border-white/50 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {refreshing ? (
               <div className="flex items-center space-x-2">
-                <div className={STYLES.SPINNER_SMALL}></div>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
                 <span>Refreshing...</span>
               </div>
             ) : (
@@ -93,7 +98,7 @@ const PendingCredentialsList: React.FC<PendingCredentialsListProps> = ({ onRefre
         </div>
       )}
 
-      <div className={STYLES.CARD} style={{boxShadow: STYLES.CARD_SHADOW}}>
+      <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20" style={{boxShadow: '0 0 40px rgba(158, 202, 214, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)'}}>
         {pendingCredentials.length === 0 ? (
           <div className="p-12 text-center">
             <div className="w-16 h-16 mx-auto mb-4 bg-slate-500/20 rounded-full flex items-center justify-center">
@@ -106,18 +111,18 @@ const PendingCredentialsList: React.FC<PendingCredentialsListProps> = ({ onRefre
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className={STYLES.TABLE_BORDER}>
-                  <th className={STYLES.TABLE_HEADER}>Student</th>
-                  <th className={STYLES.TABLE_HEADER}>Created</th>
-                  <th className={`${STYLES.TABLE_HEADER} text-center`}>Status</th>
-                  <th className={STYLES.TABLE_HEADER}>Invitation Link</th>
-                  <th className={`${STYLES.TABLE_HEADER} text-center`}>Actions</th>
+                <tr className="border-b border-white/10">
+                  <th className="text-left py-4 px-6 text-sm font-medium text-slate-300 uppercase tracking-wider">Student</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-slate-300 uppercase tracking-wider">Created</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-slate-300 uppercase tracking-wider text-center">Status</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-slate-300 uppercase tracking-wider">Invitation Link</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-slate-300 uppercase tracking-wider text-center">Actions</th>
                 </tr>
               </thead>
-              <tbody className={STYLES.TABLE_DIVIDER}>
+              <tbody className="divide-y divide-white/10">
                 {pendingCredentials.map((credential) => (
                   <React.Fragment key={credential.id}>
-                    <tr className={STYLES.TABLE_ROW_HOVER}>
+                    <tr className="hover:bg-white/5 transition-colors">
                       <td className="py-4 px-6">
                         <div className="text-white font-semibold">{credential.studentName}</div>
                       </td>
@@ -128,7 +133,7 @@ const PendingCredentialsList: React.FC<PendingCredentialsListProps> = ({ onRefre
                         </div>
                       </td>
                       <td className="py-4 px-6 text-center">
-                        <span className={STYLES.STATUS_PENDING}>
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">
                           ⏳ Pending
                         </span>
                       </td>
@@ -140,7 +145,7 @@ const PendingCredentialsList: React.FC<PendingCredentialsListProps> = ({ onRefre
                             </div>
                             <button
                               onClick={() => navigator.clipboard.writeText(credential.invitationUrl!)}
-                              className={`px-2 py-1 rounded-lg text-xs font-semibold ${STYLES.BUTTON_BASE.replace('px-4 py-2', 'px-2 py-1')} ${STYLES.BUTTON_PRIMARY} shadow-md`}
+                              className="px-2 py-1 rounded-lg text-xs font-semibold backdrop-blur-md border text-white transition-all duration-300 border-white/50 hover:bg-white/10 shadow-md"
                             >
                               Copy
                             </button>
@@ -152,7 +157,7 @@ const PendingCredentialsList: React.FC<PendingCredentialsListProps> = ({ onRefre
                       <td className="py-4 px-6 text-center">
                         <button
                           onClick={() => toggleExpanded(credential.id)}
-                          className={`px-2 py-1 rounded-lg text-xs font-semibold ${STYLES.BUTTON_BASE.replace('px-4 py-2', 'px-2 py-1')} ${STYLES.BUTTON_PRIMARY} shadow-md`}
+                          className="px-2 py-1 rounded-lg text-xs font-semibold backdrop-blur-md border text-white transition-all duration-300 border-white/50 hover:bg-white/10 shadow-md"
                         >
                           {expandedCredentials.has(credential.id) ? 'Hide Details' : 'Show Details'}
                         </button>

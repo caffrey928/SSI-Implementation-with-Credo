@@ -7,12 +7,16 @@ export interface StudentCredential {
 }
 
 export interface IssuedCredential {
-  id: string;
+  credentialId: string;
   studentName: string;
   studentId: string;
   university: string;
   issuedAt: Date;
-  status: 'issued' | 'pending' | 'failed';
+  attributes: Record<string, string>;
+  schemaId?: string;
+  credentialDefinitionId?: string;
+  schemaName?: string;
+  definitionType?: string;
 }
 
 export interface PendingCredential {
@@ -35,7 +39,6 @@ export interface CredentialOffer {
 }
 
 export interface AgentStatus {
-  pendingCredentials: number;
   schemaId?: string;
   credentialDefinitionId?: string;
   initialized: boolean;
